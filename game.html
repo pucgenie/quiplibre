@@ -3,123 +3,77 @@
 <head>
 	<meta charset="utf-8">
 	<title>Quiplibre</title>
-	<script type="text/javascript" src="QuiplashQuestion.json"></script>
+	<!--<script type="text/javascript" src="QuiplashQuestion.json"></script>-->
 	<script type="text/javascript" src="ui_messages.json"></script>
+	<link rel="stylesheet" href="css/game.css"></link>
+	<script type="text/javascript" src="scripts/game.js"></script>
 </head>
 <body>
 <div id="attrDiv"><i>Quiplibre is free software, under <a href="LICENSE.txt">AGPL v3+</a>. Its source code can be found <a href="https://github.com/wyattscarpenter/quiplibre">here</a>.</i></div>
+<audio src="Quiplash/TalkshowExport/project/media/78614.mp3" loop="loop" autoplay="autoplay"></audio>
 <div id="prevDiv"></div>
 <div id="playDiv">
 Hi, welcome to Quiplibre! Connect to wifi and visit happyfuntimes.net to join!<br>
 No players established.
 </div>
 <div id="buttonDiv">
-<button id="startButton" onClick="nextRound()">start the game</button>
+<button id="startButton" onClick="nextRound()"><script type="text/javascript">document.write(__(hostLanguages, "BtnStartGame"))</script></button>
 </div>
 <div id="gameCtrlDiv" style="display: none;">
-	<button onclick="newGame()" value>New Game with Same Players</button><br>
-	<button onclick="location.reload()" value>New Game with New Players</button><br>
+	<button onclick="newGame()">New Game with Same Players</button><br>
+	<button onclick="location.reload()">New Game with New Players</button><br>
 	<a href="https://github.com/pucgenie/quiplibre">Submit prompts or improvements at GitHub</a>
 </div>
 </body>
 <!-- <script src="prompts.json"></script>Databases are for suckers -->
 <script type="text/javascript">
 const happyfuntimes = require('happyfuntimes');
-if (!navigator.languages) {
-	navigator.languages = [navigator.language || navigator.userLanguage]
-	navigator.languages.push(navigator.languages[0].substring(0, 2))
-}
-const userLang = []
-for (var setULang of navigator.languages) {
-	if (ui_messages.hasOwnProperty(setULang)) {
-		userLang.push(setULang)
-break
-	}
-}
-for (var setULang of navigator.languages) {
-	setULang = setULang.substring(0, 2)
-	if (ui_messages.hasOwnProperty(setULang)) {
-		userLang.push(setULang)
-break
-	}
-}
-// pucgenie: the default language has to contain all keys
-userLang.push("en")
-
-const firstUserLang = userLang.slice(0, 1)[0]
-const uebersetz = ui_messages[firstUserLang]
-/**
- * Full-blown translate-and-format function.
- * Quite some overhead...
- * @author pucgenie@hotmail.com
-**/
-function __(key, basis) {
-	var ret = uebersetz[key]
-	if (!ret) {
-		for (var altLang of userLang) {
-			ret = ui_messages[altLang][key]
-			if (ret) {
-		break
-			}
-		}
-	}
-	return appendFormattedText(ret, basis).join('')
-}
 
 const server = new happyfuntimes.GameServer();
 
-const prompts = prompts2["content"]
-prompts2 = undefined
+var prompts
+lazyLoad('Quiplash/content/QuiplashQuestion.jet', json => prompts = json["content"])
 
 // A new player has arrived.
 server.on('playerconnect', netPlayer => {
 	if (gameBegun){
-		netPlayer.sendCmd('displayMessage', __("CantJoinRunningGame"))
+		netPlayer.sendCmd('displayMessage', __(hostLanguages, "CantJoinRunningGame"))
 		return
 	}
 	// pucgenie: possible race condition? No, JavaScript is single-threaded by default.
-	console.log(
-		players.push(new Player(netPlayer, "player" + (++playerId)))
-	)
-});
+	players.push(new Player(netPlayer, "player" + (++playerId)))
+})
 
 // globals
-var gameBegun = false;
-var playerId = 0;
-var players = [];
-var playerPairs = [];
-var pp = []; //the current playerPair
-var round = 0;
-const maxRounds = 3; //a nice number of rounds
+var gameBegun = false
+var playerId = 0
+var players = []
+var playerPairs = []
+var pp = [] //the current playerPair
+var round = 0
+const maxRounds = 3 //a nice number of rounds
 var votes = [[],[]]
-
-function randInt(min, max) {
-	if (max === undefined) {
-		max = min;
-		min = 0;
-	}
-	return Math.random() * (max - min) + min | 0;
-}
 
 class Player {
 	constructor(netPlayer, name) {
-		this.netPlayer = netPlayer;
-		this.name = name;
-		this.state = "nameless";
-		this.prompts = [];
+		this.netPlayer = netPlayer
+		this.name = name
+		this.state = "nameless"
+		this.prompts = []
 		this.promptId = 0
-		this.answers = [];
-		this.score = 0;
+		this.answers = []
+		this.score = 0
+		this.userLang = ["en"]
 
-		const hue = randInt(360);
-		const sat = randInt(2) * 50 + 50;
-		const val = 50;
-		this.color = "hsl(" + hue	+ "," + sat + "%," + val + "%)";
+		const hue = randInt(360)
+		const sat = randInt(2) * 50 + 50
+		const val = 50
+		this.color = "hsl(" + hue + "," + sat + "%," + val + "%)"
 
-		netPlayer.addEventListener('disconnect', Player.prototype.disconnect.bind(this));
-		netPlayer.addEventListener('receiveAnswer', Player.prototype.handleAnswer.bind(this));
-		netPlayer.addEventListener('receiveChoice', Player.prototype.handleChoice.bind(this));
-		netPlayer.sendCmd('displayPrompt', {promptId: 0, prompt: "What is your name?"});
+		netPlayer.addEventListener('disconnect', Player.prototype.disconnect.bind(this))
+		netPlayer.addEventListener('receiveAnswer', Player.prototype.handleAnswer.bind(this))
+		netPlayer.addEventListener('receiveChoice', Player.prototype.handleChoice.bind(this))
+		netPlayer.addEventListener('userLang', Player.prototype.handleUserLang.bind(this));
 	}
 
 	disconnect() {
@@ -133,19 +87,19 @@ class Player {
 	handleAnswer(cmd){
 		//the idea is to check if the response is to the right question
 		//to prevent errors
-		console.log(this);
-		console.log({"promptId":cmd.promptId, "answer":cmd.answer});
+		//console.log(this);
+		//console.log({"promptId":cmd.promptId, "answer":cmd.answer});
 		if(cmd.answer==""){
-			this.netPlayer.sendCmd('displayMessage', __("ignoringEmptyCmdAnswer"))
+			this.netPlayer.sendCmd('displayMessage', this.__("ignoringEmptyCmdAnswer"))
 	return
 		}
 		switch (this.state) {
 		case "rest":
-			this.netPlayer.sendCmd("displayMessage", __("RestStateSoNoAction"))
+			this.netPlayer.sendCmd("displayMessage", this.__("RestStateSoNoAction"))
 		break
 		case "nameless":
 			if (cmd.promptId != 0) {
-				this.netPlayer.sendCmd("displayMessage", __("NamelessUnexpectedPrompt", cmd))
+				this.netPlayer.sendCmd("displayMessage", this.__("NamelessUnexpectedPrompt", cmd))
 	return
 			}
 			this.name = cmd.answer
@@ -153,28 +107,33 @@ class Player {
 			// pucgenie: why updateScore?
 			this.netPlayer.sendCmd("updateScore", 0);
 			this.state = "rest"
-			this.netPlayer.sendCmd("displayMessage",
-				__("GetReady"));
-			display("<p>Last player to join: <b style=\"color: " + this.color + "\">"+cmd.answer+
-				"</b><br>total players: "+playerId+"</p>"
-			)
+			this.netPlayer.sendCmd("displayMessage", this.__("GetReady"))
+			replacePlayDiv(playDiv => {
+				playDiv.appendChild(document.createTextNode(__(hostLanguages, "LastPlayerJoined")))
+				var xB = document.createElement('b')
+				xB.style.color = this.color
+				xB.appendChild(document.createTextNode(cmd.answer))
+				playDiv.appendChild(xB)
+				playDiv.appendChild(document.createElement('br'))
+				playDiv.appendChild(document.createTextNode(__(hostLanguages, "TotalPlayers", {totalPlayerCount: players.length})))
+			})
 		break
 		case "prompt0":
-			if (cmd.promptId !== this.promptId){
-				this.netPlayer.sendCmd("displayMessage", __("WrongQuestion1", {prompt: this.promptId, remotePrompt: cmd.promptId}))
+			if (cmd.promptId != this.promptId){
+				this.netPlayer.sendCmd("displayMessage", this.__("WrongQuestion1", {prompt: this.promptId, remotePrompt: cmd.promptId}))
 			}
-			this.answers[0] = cmd.answer
+			this.answers.push(cmd.answer)
 			this.state = "prompt1"
 			this.promptId = this.prompts[1].promptId
 			this.netPlayer.sendCmd("displayPrompt", this.prompts[1])
 		break;
 		case "prompt1":
-			if (cmd.promptId !== this.promptId){
-				this.netPlayer.sendCmd("displayMessage", __("WrongQuestion2", {prompt: this.promptId, remotePrompt: cmd.promptId}))
+			if (cmd.promptId != this.promptId){
+				this.netPlayer.sendCmd("displayMessage", this.__("WrongQuestion2", {prompt: this.promptId, remotePrompt: cmd.promptId}))
 			}
-			this.answers[1] = cmd.answer
+			this.answers.push(cmd.answer)
 			this.state = "rest";
-			this.netPlayer.sendCmd("displayMessage", __("PleaseWaitForOtherAnswers"))
+			this.netPlayer.sendCmd("displayMessage", this.__("PleaseWaitForOtherAnswers"))
 			if(allPlayersHaveAnswered()){
 				progressJudgement();
 			}
@@ -193,16 +152,23 @@ class Player {
 		}
 		if(this.state != "choosing"){
 			console.log("ignoring choice as player state is "+this.state);
-			this.netPlayer.sendCmd("displayMessage", "We suspect you as hacker.")
+			this.netPlayer.sendCmd("displayMessage", this.__("SuspectHacker"))
 	return
 		}
 		votes[cmd.index].push(this)
-		this.netPlayer.sendCmd("displayMessage","<p>You voted for option "+(cmd.index+1)+".</p>")
+		this.netPlayer.sendCmd("displayMessage", this.__("YouVotedFor", {voteNumber: cmd.index+1}))
 		this.state = "rest"
 		if(votes[0].length+votes[1].length == players.length){
 			awardPoints()
 			progressJudgement()
 		}
+	}
+	__(key, basis, funcOut){
+		return window.__(this.userLang, key, basis, funcOut)
+	}
+	handleUserLang(cmd){
+		this.userLang = filterAvailableLanguages(cmd)
+		this.netPlayer.sendCmd('displayPrompt', {id: 0, prompt: this.__("WhatsYourName")})
 	}
 }
 Player.prototype.toString = function(){return this.name};
@@ -220,7 +186,7 @@ return
 		endGame()
 return
 	}
-	allPlayers(p => {p.prompts = [null,null]; p.answers = [null,null]})
+	allPlayers(p => {p.prompts = []; p.answers = []})
 	for (var xPlayer of players) { //todo: could refactor this to use allPlayers
 		var xPrompt = pullPrompt()
 		var xOpponent = pullRandomPlayer(xPlayer)
@@ -232,10 +198,10 @@ return
 	for (var xPlayer of players) {
 		xPlayer.netPlayer.sendCmd("displayPrompt", xPlayer.prompts[0])
 		xPlayer.state = "prompt0"
-		xPlayer.promptId = xPlayer.prompts[0].promptId
+		xPlayer.promptId = xPlayer.prompts[0].id
 	}
 
-	display("<p>Time for a nice round of Quiplibre! Round "+round+", to be exact!</p>")
+	display("Time for a nice round of Quiplibre! Round "+round+", to be exact!")
 	buttonDiv.style.display = 'none'
 }
 
@@ -246,44 +212,24 @@ function progressJudgement(){
 return
 	}
 	pp = playerPairs.splice(Math.floor(Math.random()*playerPairs.length), 1)[0]
-	display("<p><b>"+pp[2].prompt+"</b></p>"+
-		"<p>"+pp[0].answers[0]+
+	display("<p><b>"+pp.prompt.prompt+"</b></p>"+
+		"<p>"+pp.player.answers[0]+
 		"<br>OR<br>"+
-		pp[1].answers[1]+"</p>"
+		pp.opponent.answers[1]+"</p>"
 	)
+	var pfad1 = 'Quiplash/content/QuiplashQuestion/' + pp.prompt.id
+	lazyLoad(pfad1 + '/data.jet', json => {
+		new Audio(pfad1 + "/" + json['fields'].filter(feld => feld['n'] == "PromptAudio")[0]['v'] + ".mp3").play()
+	})
 	var choices = {
-		"possibilities": [pp[0].answers[0], pp[1].answers[1]],
-		"promptId": pp[2].promptId
+		"possibilities": [pp.player.answers[0], pp.opponent.answers[1]],
+		"promptId": pp.prompt.id
 	}
 	allPlayers(p => {
 		p.netPlayer.sendCmd("displayChoice", choices)
 		p.state = "choosing"
 		p.promptId = choices.promptId
 	})
-}
-
-function appendFormattedText(txtTmpl, basis, funcOut){
-	var ret
-	if (!funcOut) {
-		ret = []
-		funcOut = xWert => ret.push(xWert)
-	}
-	for(var txtTeil of txtTmpl){
-		if(txtTeil.startsWith("${")){
-			// may not contain "(),;"
-			//if(!txtTeil.endsWith("}")) throw "defective/malicious template detected"
-			funcOut(eval("basis." + txtTeil.substring(2, txtTeil.length - 1)))
-	continue
-		}
-		funcOut(txtTeil)
-	}
-	return ret
-}
-
-function clearElementChilds(xElem){
-	while(xElem.firstChild){
-		xElem.removeChild(xElem.firstChild)
-	}
 }
 
 /**
@@ -303,13 +249,12 @@ function awardPoints(){
 	clearElementChilds(prevDiv)
 	prevDiv.appendChild(document.createTextNode("Previous result:"))
 	prevDiv.appendChild(document.createElement("br"))
-	var wonVotesPoints = ["${Player.name}", " won ", "${Votes.length}", " votes and thus ", "${Player.score}", " points!"]
 	for(var i = 0; i < votes.length; ++i){
-		var xPlayer = pp[i]
+		var xPlayer = i == 0 ? pp.player : pp.opponent
 		var xVotes = votes[i]
 		xPlayer.score += xVotes.length * round
 		xPlayer.netPlayer.sendCmd("updateScore", xPlayer.score)
-		appendFormattedText(wonVotesPoints, xNeu => prevDiv.appendChild(document.createTextNode(xNeu)), {"Player": xPlayer, "Votes": xVotes})
+		__(hostLanguages, "wonVotesPoints", {"Player": xPlayer, "Votes": xVotes}, xNeu => prevDiv.appendChild(document.createTextNode(xNeu)))
 	}
 	prevDiv.appendChild(document.createElement('br'))
 	prevDiv.style.display = 'block'
@@ -339,7 +284,7 @@ function endGame(){
 	gameCtrlDiv.style.display = 'block'
 	attrDiv.style.display = 'block'
 	//todo: could send something to players
-	players.forEach(xPlayer => xPlayer.netPlayer.sendCmd('displayMessage', __("GameEnded")))
+	players.forEach(xPlayer => xPlayer.netPlayer.sendCmd('displayMessage', xPlayer.__("GameEnded")))
 }
 
 function newGame(){
@@ -363,7 +308,7 @@ function pullPrompt(){
 	if (prompts.length == 0){
 		return {prompt: "What's a good prompt for a round of Quiplibre?"+
 			" (Please send us the winning answer of this round, "+
-			"as you have exhausted our list of prompts)", promptId: 0}
+			"as you have exhausted our list of prompts)", id: 0}
 	}
 	return prompts.splice(Math.floor(Math.random()*prompts.length), 1)[0]
 }
@@ -375,8 +320,8 @@ function pullRandomPlayer(excludedPlayer){
 	if (randomPlayers.length == 0){
 		randomPlayers = players.slice()
 	}
-	var i = Math.floor(Math.random()*(randomPlayers.length-2))
 	tmpPlayers = randomPlayers.filter(p => (p != excludedPlayer))
+	var i = Math.floor(Math.random()*(randomPlayers.length-1))
 	randomPlayers = randomPlayers.filter(p => (p != tmpPlayers[i]))
 	return tmpPlayers[i]
 }

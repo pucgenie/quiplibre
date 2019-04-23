@@ -4,6 +4,7 @@
 	<meta charset="utf-8">
 	<title>Quiplibre</title>
 	<link rel="icon" href="favicon.png" type="image/png">
+	<link rel="stylesheet" href="css/controller.css"></link>
 	<script src="/node_modules/happyfuntimes/dist/hft.js"></script>
 </head>
 <body>
@@ -28,7 +29,7 @@ const form = document.querySelector('#form');
 form.addEventListener("submit", event => {
 	event.preventDefault()
 	client.sendCmd('receiveAnswer', {
-		promptId: promptDiv.getAttribute("promptId"),
+		promptId: promptDiv.getAttribute("promptid"),
 		answer: inputBox.value
 	})
 	inputBox.value = ""
@@ -39,9 +40,12 @@ const inputBox = document.querySelector('#inputBox');
 
 const client = new HFT.GameClient();
 
-client.on('connect', () => display("<p>Connected to server...</p>"))
+client.on('connect', () => {
+	display("Connected to server...")
+	client.sendCmd('userLang', navigator.languages)
+})
 
-client.on('disconnect', () => display("<p>Disconnected.</p>"))
+client.on('disconnect', () => display("Disconnected."))
 
 client.on('displayPrompt', handleDisplayPrompt);
 client.on('displayChoice', handleDisplayChoice);
@@ -57,7 +61,7 @@ client.on('updateScore', score => {
 })
 
 function display(html){
-	playDiv.innerHTML = html;
+	playDiv.innerHTML = html
 }
 
 function clearElementChilds(xElem){
@@ -88,10 +92,10 @@ function hideForm(){
 function handleDisplayPrompt(prompt) {
 	//replacePlayDiv(()=>{})
 	clearElementChilds(promptDiv)
-	promptDiv.setAttribute("promptId", prompt.promptId)
+	promptDiv.setAttribute("promptid", prompt.id)
 	promptDiv.appendChild(document.createTextNode(prompt.prompt))
-	showForm();
-	inputBox.focus();
+	showForm()
+	inputBox.focus()
 }
 
 function handleDisplayChoice(choices){
@@ -121,9 +125,13 @@ function sendChoice(promptId, i) {
 	client.sendCmd('receiveChoice', {
 		promptId: promptId,
 		index: i
-	});
-};
+	})
+}
 
+if (!navigator.languages) {
+	navigator.languages = [navigator.language || navigator.userLanguage]
+	navigator.languages.push(navigator.languages[0].substring(0, 2))
+}
 
 </script>
 </html>
