@@ -1,0 +1,25 @@
+ui_messages = {
+"de": {
+"CantJoinRunningGame":      ["Beitritt zu laufendem Spiel nicht möglich."],
+"ignoringEmptyCmdAnswer":   ["Leere Antworten werden ignoriert..."],
+"RestStateSoNoAction":      ["Du hast Pause und darfst nichts tun."],
+"GameEnded":                ["Das Spiel ist aus, aber es gibt hoffentlich noch was zu trinken."],
+"GetReady":                 ["Das Spiel beginnt gleich! Schau auf den großen Bildschirm!"],
+"emptyString": [""]
+},
+
+
+
+"en": {
+"CantJoinRunningGame":      ["You can not join a running game."],
+"ignoringEmptyCmdAnswer":   ["Ignoring empty response..."],
+"RestStateSoNoAction":      ["You are at rest and are not allowed to do anything in the meantime."],
+"NamelessUnexpectedPrompt": ["You seem to have answered a wrong question - we expect your name first. How did you manage to answer ", "${prompt}", " at this moment?"],
+"WrongQuestion1":           ["How did you manage to answer the wrong question (1. #", "${prompt}", ")? Answered to #", "${remotePrompt}", "."],
+"WrongQuestion1":           ["How did you manage to answer the wrong question (2. #", "${prompt}", ")? Answered to #", "${remotePrompt}", "."],
+"PleaseWaitForOtherAnswers":["Excellent! Now you just have to wait for everyone else to answer."],
+"GameEnded":                ["The game is over. Get yourself something to drink."],
+"GetReady":                 ["Your game should begin shortly! Look at the big screen!"],
+"emptyString": [""]
+}
+}

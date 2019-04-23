@@ -4,96 +4,122 @@
 	<meta charset="utf-8">
 	<title>Quiplibre</title>
 	<link rel="icon" href="favicon.png" type="image/png">
+	<script src="/node_modules/happyfuntimes/dist/hft.js"></script>
 </head>
 <body>
-<h1>Quiplibre</h1>
-<div id="nameDiv"></div><div id="pointsDiv"></div>
+<div><span id="nameDiv"></span><span id="pointsDiv" style="padding-left: 3pt;"></span></div>
 <div id="playDiv">
-		<p>Connecting to server...</p>
+	<p>Connecting to server...</p>
 </div>
-<form id="form" onSubmit="sendAnswer()" target="playDiv" formaction="#" style="visibility: hidden">
-		<input id="inputBox"></input><input type="submit" value="Submit"></input>
+<form id="form" target="playDiv" formaction="#" style="visibility: hidden">
+	<div id="promptDiv"></div>
+	<input id="inputBox"></input><input type="submit" value="Submit"></input>
 </form>
 </body>
-<script src="/node_modules/happyfuntimes/dist/hft.js"></script>
 <script>
 
 const nameDiv = document.querySelector('#nameDiv');
 const pointsDiv = document.querySelector('#pointsDiv');
 const playDiv = document.querySelector('#playDiv');
+const promptDiv = document.querySelector('#promptDiv')
+const choiceBtns = []
+
 const form = document.querySelector('#form');
+form.addEventListener("submit", event => {
+	event.preventDefault()
+	client.sendCmd('receiveAnswer', {
+		promptId: promptDiv.getAttribute("promptId"),
+		answer: inputBox.value
+	})
+	inputBox.value = ""
+	hideForm()
+}, false)
+
 const inputBox = document.querySelector('#inputBox');
 
 const client = new HFT.GameClient();
-client.on('connect', handleConnect);
-client.on('disconnect', handleDisconnect);
+
+client.on('connect', () => display("<p>Connected to server...</p>"))
+
+client.on('disconnect', () => display("<p>Disconnected.</p>"))
+
 client.on('displayPrompt', handleDisplayPrompt);
 client.on('displayChoice', handleDisplayChoice);
-client.on('displayMessage', handleDisplayMessage);
-client.on('updateName', handleUpdateName);
-client.on('updateScore', handleUpdateScore);
+
+client.on('displayMessage', display)
+
+client.on('updateName', name => {
+	nameDiv.innerHTML = "Name: " + name
+})
+
+client.on('updateScore', score => {
+	pointsDiv.innerHTML = "Points: " + score
+})
 
 function display(html){
 	playDiv.innerHTML = html;
 }
 
+function clearElementChilds(xElem){
+	while(xElem.firstChild){
+		xElem.removeChild(xElem.firstChild)
+	}
+}
+
+/**
+ * Clears playDiv and calls func(playDiv), which should add elements to playDiv ("display something").
+**/
+function replacePlayDiv(func){
+	// johannes: simply use style.display instead of style.visibility="hidden"|"visible" .
+	playDiv.style.display = 'none'
+	clearElementChilds(playDiv)
+	func(playDiv)
+	playDiv.style.display = 'block'
+}
+
 function showForm(){
-	form.style = "visibility: visible";
+	form.style.visibility = 'visible';
 }
 
 function hideForm(){
-	form.style = "visibility: hidden";
-}
-
-function clearInputBox(){
-	inputBox.value = "";
-}
-
-function handleConnect() {
-	display("<p>Connected to server...</p>");
-}
-
-function handleDisconnect() {
-	display("<p>Disconnected.</p>");
+	form.style.visibility = 'hidden';
 }
 
 function handleDisplayPrompt(prompt) {
-	display("<p><b id=\"prompt\">"+prompt+"</b></p>");
+	//replacePlayDiv(()=>{})
+	clearElementChilds(promptDiv)
+	promptDiv.setAttribute("promptId", prompt.promptId)
+	promptDiv.appendChild(document.createTextNode(prompt.prompt))
 	showForm();
 	inputBox.focus();
-	form.addEventListener("submit", function(event){
-		event.preventDefault();
-	}, false);
-}
-
-function handleUpdateName(name) {
-	nameDiv.innerHTML = "Name: " + name;
-}
-
-function handleUpdateScore(score) {
-	pointsDiv.innerHTML = "Points: " + score;
 }
 
 function handleDisplayChoice(choices){
-	console.log(choices);
-	hideForm();
-	display("<button id=\"choice0\" onClick=\"sendChoice(0)\">"+choices[0]+"</button>"+
-	"<br>OR<br><button id=\"choice1\" onClick=\"sendChoice(1)\">"+choices[1]+"</button>");
+	hideForm()
+	//console.log(choices);
+	replacePlayDiv(playDiv => {
+		choiceBtns.length = 0
+		var promptId = choices.promptId
+		choices.possibilities.forEach((choice, i) => {
+			var xBtn = document.createElement('button')
+			//xBtn.setAttribute('promptId', promptId)
+			xBtn.onclick = event => sendChoice(promptId, i)
+			xBtn.appendChild(document.createTextNode(choice))
+			playDiv.appendChild(xBtn)
+			playDiv.appendChild(document.createElement('br'))
+			if (i < choices.length - 1){
+				playDiv.appendChild(document.createTextNode("OR"))
+				playDiv.appendChild(document.createElement('br'))
+			}
+			// added in ascending order (by ID)
+			choiceBtns.push(xBtn)
+		})
+	})
 }
-function handleDisplayMessage(message){display(message);}
 
-
-function sendAnswer() {
-	client.sendCmd('receiveAnswer', {
-		prompt: document.querySelector('#prompt').innerHTML,
-		answer: document.querySelector('#inputBox').value
-	});
-	if(inputBox.value){clearInputBox();hideForm();}
-};
-
-function sendChoice(i) {
+function sendChoice(promptId, i) {
 	client.sendCmd('receiveChoice', {
-		choices: [document.querySelector('#choice0').innerHTML,document.querySelector('#choice1').innerHTML],
+		promptId: promptId,
 		index: i
 	});
 };

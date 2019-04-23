@@ -42,6 +42,8 @@ if (args.help) {
 const happyfuntimes = require('happyfuntimes');
 const electron = require('electron');
 const querystring = require('querystring');
+
+// pucgenie: wtf?
 const webContents = electron.webContents;
 
 const app = electron.app;
