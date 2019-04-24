@@ -1,6 +1,7 @@
-
-body {
-	background-color: black;
-	color: lightgray;
-	font-family: sans-serif;
+@media screen and (orientation: portrait) {
+	body {
+		background-color: black;
+		color: lightgray;
+		font-family: sans-serif;
+	}
 }

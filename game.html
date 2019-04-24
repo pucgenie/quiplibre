@@ -269,7 +269,7 @@ function endGame(){
 		var xTbody = document.createElement('tbody')
 		players.forEach(p => {
 			var xTr = document.createElement('tr')
-			[p.name, p.score].forEach(xTxt => {
+			new Array(p.name, p.score).forEach(xTxt => {
 				var xTd = document.createElement('td')
 				xTd.appendChild(document.createTextNode(xTxt))
 				xTr.appendChild(xTd)
