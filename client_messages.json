@@ -1,0 +1,39 @@
+{
+"de": {
+"YouVotedFor":              ["Du hast für ", "${voteNumber}", " gestimmt."],
+"NamelessUnexpectedPrompt": ["Anscheinend hast du irgendwie die falsche Frage beantwortet - als erstes erwarten wir deinen Namen. Wie hast du es geschafft, Frage#", "${promptId}", " in diesem Moment zu beantworten?"],
+"RestStateSoNoAction":      "Du hast Pause und darfst nichts tun.",
+"ignoringEmptyCmdAnswer":   "Leere Antworten werden ignoriert...",
+"CantJoinRunningGame":      "Beitritt zu laufendem Spiel nicht möglich.",
+"GameEnded":                "Das Spiel ist aus, aber es gibt hoffentlich noch was zu trinken.",
+"ConnectingToServer":   "Verbinde zu Server...",
+"ConnectedToServer":    "Mit Server verbunden.",
+"Disconnected":         "Verbindung getrennt...",
+"SubmitAnswer":         "Absenden",
+"VoteOr":               "ODER",
+"Points":               ["Punkte: ", "${score}"],
+"GetReady":             "Das Spiel beginnt gleich! Schau auf den großen Bildschirm!",
+"SuspectHacker":        "Ey du deutscher Hacker, husch husch.",
+"comment": ""
+},
+"en": {
+"YouVotedFor":              ["You voted for option ", "${voteNumber}", "."],
+"NamelessUnexpectedPrompt": ["You seem to have answered a wrong question - we expect your name first. How did you manage to answer ", "${promptId}", " at this moment?"],
+"RestStateSoNoAction":      "You are at rest and are not allowed to do anything in the meantime.",
+"ignoringEmptyCmdAnswer":   "Ignoring empty response...",
+"GameEnded":                "The game is over. Get yourself something to drink.",
+"CantJoinRunningGame":      "You can not join a running game.",
+"ConnectingToServer":   "Connecting to server...",
+"ConnectedToServer":    "Connected to server.",
+"Disconnected":         "Disconnected...",
+"SubmitAnswer":         "Submit",
+"VoteOr":               "OR",
+"Points":               ["Points: ", "${score}"],
+"GetReady":             "Your game should begin shortly! Look at the big screen!",
+"WrongQuestion":        ["How did you manage to answer the wrong question (#", "${prompt}", ")? Answered to #", "${remotePrompt}", "."],
+"PleaseWaitForOtherAnswers":"Excellent! Now you just have to wait for everyone else to answer.",
+"SuspectHacker":        "We suspect you as hacker.",
+"comment": ""
+},
+"comment": "Should this file become huge, split it by language."
+}

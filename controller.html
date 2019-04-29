@@ -5,134 +5,20 @@
 	<title>Quiplibre</title>
 	<link rel="icon" href="favicon.png" type="image/png">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="format-detection" content="telephone=no" />
+	<link rel="stylesheet" href="css/common.css"></link>
 	<link rel="stylesheet" href="css/controller.css"></link>
+	<script type="text/javascript" src="scripts/common.js"></script>
+	<script type="text/javascript" src="scripts/controller.js"></script>
 	<script src="/node_modules/happyfuntimes/dist/hft.js"></script>
 </head>
 <body>
 <div><span id="nameDiv"></span><span id="pointsDiv" style="padding-left: 3pt;"></span></div>
 <div id="playDiv">
-	<p>Connecting to server...</p>
 </div>
-<form id="form" target="playDiv" formaction="#" style="visibility: hidden">
+<form id="form" target="playDiv" formaction="#" style="display: none" autocomplete="off">
 	<div id="promptDiv"></div>
-	<input id="inputBox"></input><input type="submit" value="Submit"></input>
+	<input type="text" id="inputBox" autocomplete="off"></input><button type="submit" data-tlk="SubmitAnswer"></button>
 </form>
 </body>
-<script>
-
-const nameDiv = document.querySelector('#nameDiv');
-const pointsDiv = document.querySelector('#pointsDiv');
-const playDiv = document.querySelector('#playDiv');
-const promptDiv = document.querySelector('#promptDiv')
-const choiceBtns = []
-
-const form = document.querySelector('#form');
-form.addEventListener("submit", event => {
-	event.preventDefault()
-	client.sendCmd('receiveAnswer', {
-		promptId: promptDiv.getAttribute("promptid"),
-		answer: inputBox.value
-	})
-	inputBox.value = ""
-	hideForm()
-}, false)
-
-const inputBox = document.querySelector('#inputBox');
-
-const client = new HFT.GameClient();
-
-client.on('connect', () => {
-	display("Connected to server...")
-	client.sendCmd('userLang', navigator.languages)
-})
-
-client.on('disconnect', () => display("Disconnected."))
-
-client.on('displayPrompt', handleDisplayPrompt);
-client.on('displayChoice', handleDisplayChoice);
-
-client.on('displayMessage', display)
-
-client.on('updateName', name => {
-	nameDiv.innerHTML = "Name: " + name
-})
-
-client.on('updateScore', score => {
-	pointsDiv.innerHTML = "Points: " + score
-})
-
-function display(html){
-	playDiv.innerHTML = html
-}
-
-function clearElementChilds(xElem){
-	while(xElem.firstChild){
-		xElem.removeChild(xElem.firstChild)
-	}
-}
-
-/**
- * Clears playDiv and calls func(playDiv), which should add elements to playDiv ("display something").
-**/
-function replacePlayDiv(func){
-	// johannes: simply use style.display instead of style.visibility="hidden"|"visible" .
-	playDiv.style.display = 'none'
-	clearElementChilds(playDiv)
-	func(playDiv)
-	playDiv.style.display = 'block'
-}
-
-function showForm(){
-	form.style.visibility = 'visible';
-}
-
-function hideForm(){
-	form.style.visibility = 'hidden';
-}
-
-function handleDisplayPrompt(prompt) {
-	//replacePlayDiv(()=>{})
-	clearElementChilds(promptDiv)
-	promptDiv.setAttribute("promptid", prompt.id)
-	promptDiv.appendChild(document.createTextNode(prompt.prompt))
-	showForm()
-	inputBox.focus()
-}
-
-function handleDisplayChoice(choices){
-	hideForm()
-	//console.log(choices);
-	replacePlayDiv(playDiv => {
-		choiceBtns.length = 0
-		var promptId = choices.promptId
-		choices.possibilities.forEach((choice, i) => {
-			var xBtn = document.createElement('button')
-			//xBtn.setAttribute('promptId', promptId)
-			xBtn.onclick = event => sendChoice(promptId, i)
-			xBtn.appendChild(document.createTextNode(choice))
-			playDiv.appendChild(xBtn)
-			playDiv.appendChild(document.createElement('br'))
-			if (i < choices.length - 1){
-				playDiv.appendChild(document.createTextNode("OR"))
-				playDiv.appendChild(document.createElement('br'))
-			}
-			// added in ascending order (by ID)
-			choiceBtns.push(xBtn)
-		})
-	})
-}
-
-function sendChoice(promptId, i) {
-	client.sendCmd('receiveChoice', {
-		promptId: promptId,
-		index: i
-	})
-}
-
-if (!navigator.languages) {
-	navigator.languages = [navigator.language || navigator.userLanguage]
-	navigator.languages.push(navigator.languages[0].substring(0, 2))
-}
-
-</script>
 </html>

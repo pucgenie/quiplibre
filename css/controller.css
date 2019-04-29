@@ -1,7 +1,10 @@
-@media screen and (orientation: portrait) {
+
+.Q2Vote4 {
+	font-weight: bold;
+}
+
+@media screen and (orientation: landscape) {
 	body {
-		background-color: black;
-		color: lightgray;
-		font-family: sans-serif;
+		background-color: lightgreen;
 	}
 }
