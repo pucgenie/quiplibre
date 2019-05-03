@@ -4,3 +4,8 @@ body {
 	color: lightgray;
 	font-family: sans-serif;
 }
+
+#playDiv .answer {
+	font-style: italic;
+	font-weight: bold;
+}

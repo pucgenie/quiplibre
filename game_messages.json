@@ -1,5 +1,6 @@
 {
 "de": {
+"Player":                   ["spieler", "${playerNum}"],
 "wonVotesPoints":           ["${Player.name}", " hat ", "${Votes.length}", " Stimmen und somit ", "${Player.score}", " Punkte dazugewonnen!"],
 "LastPlayerJoined":         "Zuletzt hinzugekommener Spieler: ",
 "TotalPlayers":             ["Spieleranzahl: ", "${totalPlayerCount}"],
@@ -17,6 +18,7 @@
 "comment": "Einige Systemfehlermeldungen wurden absichtlich nicht übersetzt."
 },
 "en": {
+"Player":                   ["player", "${playerNum}"],
 "wonVotesPoints":           ["${Player.name}", " won ", "${Votes.length}", " votes and thus ", "${Player.score}", " points!"],
 "LastPlayerJoined":         "Last player to join: ",
 "TotalPlayers":             ["Total players: ", "${totalPlayerCount}"],

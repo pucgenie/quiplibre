@@ -122,9 +122,7 @@ function startIfReady() {
   }
 }
 
-app.on('ready', () => {
-  startIfReady();
-});
+app.on('ready', startIfReady)
 
 app.on('window-all-closed', () => {
   server.close();

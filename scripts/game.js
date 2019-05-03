@@ -11,6 +11,7 @@ const uebersetz = new Uebersetz('game_messages.json', uebersetz => {
 function nachDemLaden() {
 	document.querySelectorAll('[data-tlk]').forEach(elem => {
 		replaceContentTranslated(elem, elem.getAttribute('data-tlk'))
+		//elem.removeAttribute('data-tlk')
 	})
 	
 	titelvideo.addEventListener('play', evt => {
@@ -31,6 +32,44 @@ function randInt(min, max) {
 	return Math.random() * (max - min) + min | 0
 }
 
+/**
+ * Converts an HSL color value to RGB. Conversion formula
+ * adapted from http://en.wikipedia.org/wiki/HSL_color_space.
+ * Assumes h, s, and l are contained in the set [0, 1] and
+ * returns r, g, and b in the set [0, 255].
+ *
+ * @param   {number}  h       The hue
+ * @param   {number}  s       The saturation
+ * @param   {number}  l       The lightness
+ * @return  {Array}           The RGB representation
+ * @source https://stackoverflow.com/a/9493060
+ */
+function hslToRgb(h, s, l){
+	var r, g, b
+	if(s == 0){
+		r = g = b = l // achromatic
+	}else{
+		var hue2rgb = function hue2rgb(p, q, t){
+			if(t < 0) t += 1
+			if(t > 1) t -= 1
+			if(t < 1/6) return p + (q - p) * 6 * t
+			if(t < 1/2) return q
+			if(t < 2/3) return p + (q - p) * (2/3 - t) * 6
+			return p
+		}
+		var q = l < 0.5 ? l * (1 + s) : l + s - l * s
+		var p = 2 * l - q
+		r = hue2rgb(p, q, h + 1/3)
+		g = hue2rgb(p, q, h)
+		b = hue2rgb(p, q, h - 1/3)
+	}
+	return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)]
+}
+
+function renderTotalPlayersText(playDiv) {
+	__("TotalPlayers", {totalPlayerCount: players.length}, satz => playDiv.appendChild(textToNode(satz)))
+}
+
 class Player {
 	constructor(netPlayer, name) {
 		this.netPlayer = netPlayer
@@ -42,12 +81,17 @@ class Player {
 		this.score = 0
 		this.userLang = ["en"]
 		this.voteCountR3 = 0
-
-		const hue = randInt(360)
-		const sat = randInt(2) * 50 + 50
-		const val = 50
-		this.color = "hsl(" + hue + "," + sat + "%," + val + "%)"
-
+		
+		var hslArr = hslToRgb(randInt(360), randInt(2) * 50 + 50, 50)
+		// pucgenie: cut-off negative channel values
+		for(var i = hslArr.length; i --> 0; ) {
+			if (hslArr[i] < 0) {
+				hslArr[i] = 0
+			}
+		}
+		hslArr = (hslArr[0] << 16) | (hslArr[1] << 8) | hslArr[2]
+		this.color = '#' + hslArr.toString(16).padStart(6, '0')
+		
 		netPlayer.addEventListener('disconnect', Player.prototype.disconnect.bind(this))
 		netPlayer.addEventListener('receiveAnswer', Player.prototype.handleAnswer.bind(this))
 		netPlayer.addEventListener('receiveChoice', Player.prototype.handleChoice.bind(this))
@@ -61,6 +105,14 @@ class Player {
 		} else {
 			console.log({"notfound": this})
 		}
+		clearElementChilds(playDiv)
+		renderTotalPlayersText(playDiv)
+	}
+	/**
+	 * A wrapper for sendCmd('displayMessage', ...) without obvious reflection semantics etc..
+	**/
+	displayMessage(template, params){
+		this.netPlayer.sendCmd('displayMessage', {template: template, params: params})
 	}
 	handleAnswer(cmd){
 		//the idea is to check if the response is to the right question
@@ -68,16 +120,16 @@ class Player {
 		//console.log(this);
 		//console.log({"promptId":cmd.promptId, "answer":cmd.answer});
 		if(cmd.answer==""){
-			this.netPlayer.sendCmd('displayMessage', {template: "ignoringEmptyCmdAnswer"})
+			this.displayMessage("ignoringEmptyCmdAnswer")
 	return
 		}
 		switch (this.state) {
 		case "rest":
-			this.netPlayer.sendCmd('displayMessage', {template: "RestStateSoNoAction"})
+			this.displayMessage("RestStateSoNoAction")
 		break
 		case "nameless":
 			if (cmd.promptId != 0) {
-				this.netPlayer.sendCmd('displayMessage', {template: "NamelessUnexpectedPrompt", params: {promptId: cmd.promptId}})
+				this.displayMessage("NamelessUnexpectedPrompt", {promptId: cmd.promptId})
 	return
 			}
 			this.name = cmd.answer
@@ -85,7 +137,7 @@ class Player {
 			// pucgenie: why updateScore?
 			this.netPlayer.sendCmd('updateScore', 0)
 			this.state = "rest"
-			this.netPlayer.sendCmd('displayMessage', {template: "GetReady"})
+			this.displayMessage("GetReady")
 			replaceContent(playDiv, playDiv => {
 				__("LastPlayerJoined", undefined, satz => playDiv.appendChild(textToNode(satz)))
 				var xB = document.createElement('b')
@@ -93,12 +145,12 @@ class Player {
 				xB.style.color = this.color
 				playDiv.appendChild(xB)
 				playDiv.appendChild(document.createElement('br'))
-				__("TotalPlayers", {totalPlayerCount: players.length}, satz => playDiv.appendChild(textToNode(satz)))
+				renderTotalPlayersText(playDiv)
 			})
 		break
 		case "prompt0":
 			if (cmd.promptId != this.promptId){
-				this.netPlayer.sendCmd('displayMessage', {template: "WrongQuestion", params: {prompt: this.promptId, remotePrompt: cmd.promptId}})
+				this.displayMessage("WrongQuestion", {prompt: this.promptId, remotePrompt: cmd.promptId})
 			}
 			this.state = "prompt1"
 			this.answers.push(cmd.answer)
@@ -107,11 +159,11 @@ class Player {
 		break;
 		case "prompt1":
 			if (cmd.promptId != this.promptId){
-				this.netPlayer.sendCmd('displayMessage', {template: "WrongQuestion", params: {prompt: this.promptId, remotePrompt: cmd.promptId}})
+				this.displayMessage("WrongQuestion", {prompt: this.promptId, remotePrompt: cmd.promptId})
 			}
 			this.state = 'rest'
 			this.answers.push(cmd.answer)
-			this.netPlayer.sendCmd('displayMessage', {template: "PleaseWaitForOtherAnswers"})
+			this.displayMessage("PleaseWaitForOtherAnswers")
 			if(allPlayersHaveAnswered()){
 				progressJudgement();
 			}
@@ -130,7 +182,7 @@ class Player {
 		}
 		if(this.state != "choosing"){
 			console.log("ignoring choice as player state is "+this.state);
-			this.netPlayer.sendCmd('displayMessage', {template: "SuspectHacker"})
+			this.displayMessage("SuspectHacker")
 	return
 		}
 		roundLogic.votes[cmd.index].push(this)
@@ -138,7 +190,7 @@ class Player {
 			// WastedSpark(tm)
 			this.voteCountR3 = 0
 			this.state = "rest"
-			this.netPlayer.sendCmd('displayMessage', {template: "YouVotedFor", params: {voteNumber: cmd.index+1}})
+			this.displayMessage("YouVotedFor", {voteNumber: cmd.index+1})
 			var stimmenSumme = 0
 			for(var voteN of roundLogic.votes) {
 				stimmenSumme += voteN.length
@@ -153,12 +205,11 @@ class Player {
 			}
 		}
 	}
-	__(key, basis, funcOut, joined = false){
-		return uebersetz.__(this.userLang, key, basis, funcOut, joined)
-	}
 	handleUserLang(cmd){
 		this.userLang = uebersetz.filterAvailableLanguages(cmd.languages)
-		this.netPlayer.sendCmd('displayPrompt', {id: 0, prompt: this.__("WhatsYourName"), lang: this.userLang})
+		var specialTrnsltd = {id: 0, prompt: undefined, lang: undefined, color: this.color}
+		specialTrnsltd.lang = uebersetz.__(this.userLang, "WhatsYourName", undefined, satz => specialTrnsltd.prompt = satz)
+		this.netPlayer.sendCmd('displayPrompt', specialTrnsltd)
 	}
 }
 Player.prototype.toString = function(){return this.name}
@@ -189,13 +240,16 @@ class AbstractRound {
 					erstes = false
 				} else {
 					var xNode = document.createElement('p')
+					xNode.classList.add('answer')
+					xNode.setAttribute('lang', uebersetz.languages)
 					__("VoteOr", undefined, satz => xNode.appendChild(textToNode(satz)))
-					xNode.setAttribute('lang', uebersetz.)
+					playDiv.appendChild(xNode)
 					playDiv.appendChild(document.createElement('br'))
 				}
 				var xPAnswer = document.createElement('p')
-				xPAnswer.appendChild(document.createTextNode(xPlayer.answers[aI]))
+				xPAnswer.classList.add('answer')
 				xPAnswer.setAttribute('lang', xPlayer.answers[aI].lang)
+				xPAnswer.appendChild(document.createTextNode(xPlayer.answers[aI]))
 				playDiv.appendChild(xPAnswer)
 				if (round != 3) {
 					// pucgenie: how to refactor
@@ -245,9 +299,10 @@ class Round_3 extends AbstractRound {
 		}
 	}
 	progressJudgement1() {
-		this.votes = [[],[]]
-		for(var i = 2; i < players.length; ++i) {
-			this.votes.push([])
+		// pucgenie: experimental
+		this.votes = new Array(players.length)
+		for(var i = players.length; i --> 0; ) {
+			this.votes[i] = []
 		}
 	}
 	getAllAnswers() {
@@ -264,7 +319,18 @@ const happyfuntimes = require('happyfuntimes')
 const server = new happyfuntimes.GameServer()
 
 var prompts
-lazyLoad('Quiplash/content/QuiplashQuestion.jet', rText => prompts = JSON.parse(rText)['content'])
+lazyLoad('Quiplash/content/QuiplashQuestion.jet', rText => {
+	prompts = JSON.parse(rText)['content']
+	/*
+	// temporary converter
+	var xPre = document.createElement('pre')
+	for(var xP of prompts) {
+		xPre.appendChild(document.createTextNode(`"${xP.id}": "${xP.prompt}",
+`))
+	}
+	playDiv.appendChild(xPre)
+	*/
+})
 
 // A new player has arrived.
 server.on('playerconnect', netPlayer => {
@@ -273,7 +339,9 @@ server.on('playerconnect', netPlayer => {
 		return
 	}
 	// pucgenie: possible race condition? No, JavaScript is single-threaded by default.
-	players.push(new Player(netPlayer, "player" + (players.length+1)))
+	__("Player", {playerNum: players.length+1}, playerText => {
+		players.push(new Player(netPlayer, playerText))
+	})
 })
 
 // globals
@@ -321,37 +389,42 @@ return
 
 function progressJudgement(){
 	roundLogic.progressJudgement(choices => {
-		var pfad1 = 'Quiplash/content/QuiplashQuestion/' + choices.prompt.id
-		lazyLoad(pfad1 + '/data.jet', rText => {
-			// pucgenie: Announce the question text.
-			var questionRead = new Audio(pfad1 + "/" + JSON.parse(rText)['fields'].filter(feld => feld['n'] == "PromptAudio")[0]['v'] + ".mp3")
-			questionRead.addEventListener('ended', () => {
-				var ausG = []
-				__('VoteOr', undefined, xTxt2 => ausG.push(xTxt2))
-				var sepMsg = new SpeechSynthesisUtterance(ausG[0])
-				hintergrundmusik.pause()
-				var prevMsg = undefined
-				for(var xP of document.querySelectorAll('#playDiv p')) {
-					var msg = new SpeechSynthesisUtterance(xP.innerText)
-					msg.lang = xP.getAttribute('lang')
-					if (prevMsg) {
-						prevMsg.addEventListener('end', () => {
-							sepMsg.addEventListener('end', () => {
-								window.speechSynthesis.speak(msg)
-							}, {once: true})
-							window.speechSynthesis.speak(sepMsg)
-						})
-					} else {
-						window.speechSynthesis.speak(msg)
+		try {
+			var pfad1 = 'Quiplash/content/QuiplashQuestion/' + choices.prompt.id
+			lazyLoad(pfad1 + '/data.jet', rText => {
+				// pucgenie: Announce the question text.
+				var questionRead = new Audio(pfad1 + "/" + JSON.parse(rText)['fields'].filter(feld => feld['n'] == "PromptAudio")[0]['v'] + ".mp3")
+				questionRead.addEventListener('ended', () => {
+					var ausG = []
+					var slg = __('VoteOr', undefined, xTxt2 => ausG.push(xTxt2))
+					var sepMsg = new SpeechSynthesisUtterance(ausG[0])
+					sepMsg.lang = slg
+					hintergrundmusik.pause()
+					var prevMsg = undefined
+					for(var xP of document.querySelectorAll('#playDiv .answer')) {
+						var msg = new SpeechSynthesisUtterance(xP.innerText)
+						msg.lang = xP.getAttribute('lang')
+						if (prevMsg) {
+							prevMsg.addEventListener('end', () => {
+								sepMsg.addEventListener('end', () => {
+									window.speechSynthesis.speak(msg)
+								}, {once: true})
+								window.speechSynthesis.speak(sepMsg)
+							})
+						} else {
+							window.speechSynthesis.speak(msg)
+						}
+						prevMsg = msg
 					}
-					prevMsg = msg
-				}
-				prevMsg.addEventListener('end', () => {
-					hintergrundmusik.play()
+					prevMsg.addEventListener('end', () => {
+						hintergrundmusik.play()
+					})
 				})
+				questionRead.play()
 			})
-			questionRead.play()
-		})
+		} catch (soundExc) {
+			console.log({"nonFatalException": soundExc})
+		}
 	})
 }
 
@@ -394,7 +467,7 @@ function endGame(){
 	gameCtrlDiv.style.display = 'block'
 	attrDiv.style.display = 'block'
 	//todo: could send something to players
-	players.forEach(xPlayer => xPlayer.netPlayer.sendCmd('displayMessage', {template: "GameEnded"}))
+	players.forEach(xPlayer => xPlayer.displayMessage("GameEnded"))
 	titelvideo.style['display'] = 'block'
 }
 

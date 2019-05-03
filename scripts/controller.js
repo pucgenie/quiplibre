@@ -2,6 +2,9 @@
 
 const uebersetz = new Uebersetz('client_messages.json', uebersetz => {
 	window.__ = (key, basis, func, joined) => uebersetz.__(uebersetz.languages, key, basis, func, joined)
+	lazyLoad(`Quiplash/content/QuiplashQuestion_${uebersetz.languages[0]}.jet`, rText => {
+		window.prompts2 = JSON.parse(rText)
+	})
 	if (document.readyState !== 'complete') {
 		document.addEventListener('DOMContentLoaded', nachDemLaden, {once: true})
 	} else {
@@ -15,9 +18,11 @@ function nachDemLaden() {
 	const playDiv = document.getElementById('playDiv')
 	const promptDiv = document.getElementById('promptDiv')
 	const inputBox = document.getElementById('inputBox')
+	const langBox = document.getElementById('langBox')
 	const form = document.getElementById('form')
 	
 	const choiceBtns = []
+	langBox.value = navigator.languages[0]
 	document.querySelectorAll('[data-tlk]').forEach(elem => {
 		replaceContentTranslated(elem, elem.getAttribute('data-tlk'))
 	})
@@ -25,12 +30,16 @@ function nachDemLaden() {
 	
 	form.addEventListener('submit', evt => {
 		evt.preventDefault()
-		client.sendCmd('receiveAnswer', {
+		var txData = {
 			promptId: promptDiv.getAttribute("promptid"),
 			answer: inputBox.value,
 			// pucgenie: TODO: sollte auswählbar gemacht werden
-			lang: 'en'
-		})
+			lang: langBox.value
+		}
+		if (txData.promptId == 0) {
+			txData['color'] = document.getElementById('playerColor').getAttribute('color')
+		}
+		client.sendCmd('receiveAnswer', txData)
 		inputBox.value = ""
 		// pucgenie: hide form if unused
 		form.style['display'] = 'none'
@@ -51,6 +60,13 @@ function nachDemLaden() {
 		replaceContent(promptDiv, promptDiv => {
 			promptDiv.setAttribute("promptid", prompt.id)
 			promptDiv.appendChild(document.createTextNode(prompt.prompt))
+			if (prompt.id == 0) {
+				var colorpicker = document.createElement('input')
+				colorpicker.setAttribute('type', 'color')
+				colorpicker.setAttribute('color', prompt.color)
+				colorpicker.setAttribute('id', 'playerColor')
+				promptDiv.appendChild(colorpicker)
+			}
 			form.style['display'] = 'block'
 			inputBox.focus()
 		})
@@ -72,11 +88,16 @@ function nachDemLaden() {
 					promptId: promptId,
 					index: i
 				})
+				// pucgenie: should aid TTS
+				xBtn.setAttribute('lang', choice.lang)
+				
 				xBtn.appendChild(document.createTextNode(choice))
 				playDiv.appendChild(xBtn)
 				playDiv.appendChild(document.createElement('br'))
 				if (i < choices.length - 1){
-					__("VoteOr", undefined, satz => playDiv.appendChild(textToNode(satz)))
+					var langedSpan = document.createElement('span')
+					langedSpan.setAttribute('lang', __("VoteOr", undefined, satz => langedSpan.appendChild(textToNode(satz))))
+					playDiv.appendChild(langedSpan)
 					playDiv.appendChild(document.createElement('br'))
 				}
 				// added in ascending order (by ID)
