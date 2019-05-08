@@ -1,5 +1,6 @@
+"use strict";
 
-const uebersetz = new Uebersetz('game_messages.json', uebersetz => {
+const uebersetz = new Uebersetz('game_messages', uebersetz => {
 	window.__ = (key, basis, func, joined) => uebersetz.__(uebersetz.languages, key, basis, func, joined)
 	if (document.readyState !== 'complete' && document.readyState !== 'interactive') {
 		document.addEventListener('DOMContentLoaded', nachDemLaden, {once: true})
@@ -17,19 +18,11 @@ function nachDemLaden() {
 	titelvideo.addEventListener('play', evt => {
 		hintergrundmusik.pause()
 	})
-	var fortsetzer = evt => {
+	const fortsetzer = evt => {
 		hintergrundmusik.play()
 	}
 	titelvideo.addEventListener('pause', fortsetzer)
 	titelvideo.addEventListener('ended', fortsetzer)
-}
-
-function randInt(min, max) {
-	if (max === undefined) {
-		max = min
-		min = 0
-	}
-	return Math.random() * (max - min) + min | 0
 }
 
 /**
@@ -45,11 +38,11 @@ function randInt(min, max) {
  * @source https://stackoverflow.com/a/9493060
  */
 function hslToRgb(h, s, l){
-	var r, g, b
+	let r, g, b
 	if(s == 0){
 		r = g = b = l // achromatic
 	}else{
-		var hue2rgb = function hue2rgb(p, q, t){
+		const hue2rgb = function hue2rgb(p, q, t){
 			if(t < 0) t += 1
 			if(t > 1) t -= 1
 			if(t < 1/6) return p + (q - p) * 6 * t
@@ -57,8 +50,8 @@ function hslToRgb(h, s, l){
 			if(t < 2/3) return p + (q - p) * (2/3 - t) * 6
 			return p
 		}
-		var q = l < 0.5 ? l * (1 + s) : l + s - l * s
-		var p = 2 * l - q
+		const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+		const p = 2 * l - q
 		r = hue2rgb(p, q, h + 1/3)
 		g = hue2rgb(p, q, h)
 		b = hue2rgb(p, q, h - 1/3)
@@ -70,7 +63,7 @@ function renderTotalPlayersText(playDiv) {
 	__("TotalPlayers", {totalPlayerCount: players.length}, satz => playDiv.appendChild(textToNode(satz)))
 }
 
-class Player {
+class AbstractPlayer {
 	constructor(netPlayer, name) {
 		this.netPlayer = netPlayer
 		this.name = name
@@ -82,20 +75,22 @@ class Player {
 		this.userLang = ["en"]
 		this.voteCountR3 = 0
 		
-		var hslArr = hslToRgb(randInt(360), randInt(2) * 50 + 50, 50)
+		let hslArr = hslToRgb(Math.random(), Math.random() * 0.5 + 0.5, 0.5)
 		// pucgenie: cut-off negative channel values
-		for(var i = hslArr.length; i --> 0; ) {
+		for(let i = hslArr.length; i --> 0; ) {
 			if (hslArr[i] < 0) {
 				hslArr[i] = 0
 			}
 		}
+		// pucgenie: zu große Zahlen?
+		//console.log(hslArr)
 		hslArr = (hslArr[0] << 16) | (hslArr[1] << 8) | hslArr[2]
 		this.color = '#' + hslArr.toString(16).padStart(6, '0')
 		
-		netPlayer.addEventListener('disconnect', Player.prototype.disconnect.bind(this))
-		netPlayer.addEventListener('receiveAnswer', Player.prototype.handleAnswer.bind(this))
-		netPlayer.addEventListener('receiveChoice', Player.prototype.handleChoice.bind(this))
-		netPlayer.addEventListener('userLang', Player.prototype.handleUserLang.bind(this))
+		netPlayer.addEventListener('disconnect',    AbstractPlayer.prototype.disconnect.bind(this))
+		netPlayer.addEventListener('receiveAnswer', AbstractPlayer.prototype.handleAnswer.bind(this))
+		netPlayer.addEventListener('receiveChoice', AbstractPlayer.prototype.handleChoice.bind(this))
+		netPlayer.addEventListener('userLang',      AbstractPlayer.prototype.handleUserLang.bind(this), {once: true})
 	}
 
 	disconnect() {
@@ -133,6 +128,7 @@ class Player {
 	return
 			}
 			this.name = cmd.answer
+			this.color = cmd.color
 			this.netPlayer.sendCmd('updateName', {name: this.name, color: this.color})
 			// pucgenie: why updateScore?
 			this.netPlayer.sendCmd('updateScore', 0)
@@ -140,7 +136,7 @@ class Player {
 			this.displayMessage("GetReady")
 			replaceContent(playDiv, playDiv => {
 				__("LastPlayerJoined", undefined, satz => playDiv.appendChild(textToNode(satz)))
-				var xB = document.createElement('b')
+				const xB = document.createElement('b')
 				xB.appendChild(document.createTextNode(cmd.answer))
 				xB.style.color = this.color
 				playDiv.appendChild(xB)
@@ -148,15 +144,76 @@ class Player {
 				renderTotalPlayersText(playDiv)
 			})
 		break
+		default:
+			this.handleAnswer0(cmd)
+		break
+		}
+	}
+	handleChoice(cmd){
+		//console.log(cmd)
+		//console.log(this)
+		if(cmd.promptId != this.promptId){//remember, == does not work on arrays
+			console.log({"error": "ignoring choice as it's between incorrect options", "remotePromptId": cmd.promptId, "expectedPromptId": this.promptId})
+			return
+		}
+		if(this.state != "choosing"){
+			console.log("ignoring choice as player state is "+this.state)
+			this.displayMessage("SuspectHacker")
+	return
+		}
+		roundLogic.votes[cmd.index].push(this)
+		if (round != maxRounds || ++this.voteCountR3 == maxRounds) {
+			// WastedSpark(tm)
+			this.voteCountR3 = 0
+			this.state = "rest"
+			this.displayMessage("YouVotedFor", {voteNumber: cmd.index+1})
+			let stimmenSumme = 0
+			for(let voteN of roundLogic.votes) {
+				stimmenSumme += voteN.length
+			}
+			let voteFactor = round == maxRounds ? maxRounds : 1
+			if(stimmenSumme >= players.length * voteFactor){
+				if (stimmenSumme > players.length * voteFactor) {
+					console.log("There are more votes than players!")
+				}
+				attrDiv.style.display = 'none'
+				replaceContent(prevDiv, prevDiv => {
+					__("PreviousResults", undefined, satz => prevDiv.appendChild(textToNode(satz)))
+					
+					roundLogic.awardPoints((xPlayer, xVotes) => {
+						let xPDe = document.createElement('p')
+						__("wonVotesPoints", {"Player": xPlayer, "Votes": xVotes}, xNeu => xPDe.appendChild(textToNode(xNeu)))
+						prevDiv.appendChild(xPDe)
+					})
+					
+					prevDiv.appendChild(document.createElement('br'))
+				})
+				progressJudgement()
+			}
+		}
+	}
+	handleUserLang(cmd){
+		//console.log(cmd)
+		this.userLang = cmd
+		this.netPlayer.sendCmd('displayPrompt', {id: 0, prompt: undefined, lang: undefined, color: this.color, resPack: theResPack})
+	}
+}
+AbstractPlayer.prototype.toString = function(){return this.name}
+
+class QuiplibrePlayer extends AbstractPlayer {
+	handleAnswer0(cmd) {
+		// pucgenie: code reachable?
+		console.log("in handleAnswer0")
+		switch(this.state) {
 		case "prompt0":
 			if (cmd.promptId != this.promptId){
 				this.displayMessage("WrongQuestion", {prompt: this.promptId, remotePrompt: cmd.promptId})
 			}
 			this.state = "prompt1"
-			this.answers.push(cmd.answer)
+			this.answers.push(cmd)
 			this.promptId = this.prompts[1].id
 			this.netPlayer.sendCmd('displayPrompt', this.prompts[1])
-		break;
+		break
 		case "prompt1":
 			if (cmd.promptId != this.promptId){
 				this.displayMessage("WrongQuestion", {prompt: this.promptId, remotePrompt: cmd.promptId})
@@ -164,55 +221,16 @@ class Player {
 			this.state = 'rest'
 			this.answers.push(cmd.answer)
 			this.displayMessage("PleaseWaitForOtherAnswers")
-			if(allPlayersHaveAnswered()){
-				progressJudgement();
-			}
-		break;
-		default:
-			console.log({"playerName": this.name, "unexpectedState": this.state})
-		break;
-		}
-	}
-	handleChoice(cmd){
-		console.log(cmd)
-		console.log(this)
-		if(cmd.promptId != this.promptId){//remember, == does not work on arrays
-			console.log({"error": "ignoring choice as it's between incorrect options", "remotePromptId": cmd.promptId, "expectedPromptId": this.promptId})
-			return
-		}
-		if(this.state != "choosing"){
-			console.log("ignoring choice as player state is "+this.state);
-			this.displayMessage("SuspectHacker")
-	return
-		}
-		roundLogic.votes[cmd.index].push(this)
-		if (round != 3 || ++this.voteCountR3 == 3) {
-			// WastedSpark(tm)
-			this.voteCountR3 = 0
-			this.state = "rest"
-			this.displayMessage("YouVotedFor", {voteNumber: cmd.index+1})
-			var stimmenSumme = 0
-			for(var voteN of roundLogic.votes) {
-				stimmenSumme += voteN.length
-			}
-			var voteFactor = round == 3 ? 3 : 1
-			if(stimmenSumme >= players.length * voteFactor){
-				if (stimmenSumme > players.length * voteFactor) {
-					console.log("There are more votes than players!")
-				}
-				awardPoints()
+			if(roundLogic.allPlayersHaveAnswered()){
 				progressJudgement()
 			}
+		break
+		default:
+			console.log({"playerName": this.name, "unexpectedState": this.state})
+		break
 		}
 	}
-	handleUserLang(cmd){
-		this.userLang = uebersetz.filterAvailableLanguages(cmd.languages)
-		var specialTrnsltd = {id: 0, prompt: undefined, lang: undefined, color: this.color}
-		specialTrnsltd.lang = uebersetz.__(this.userLang, "WhatsYourName", undefined, satz => specialTrnsltd.prompt = satz)
-		this.netPlayer.sendCmd('displayPrompt', specialTrnsltd)
-	}
 }
-Player.prototype.toString = function(){return this.name}
 
 class AbstractRound {
 	constructor() {
@@ -220,7 +238,7 @@ class AbstractRound {
 		this.pp = undefined
 		this.playerPairs = []
 	}
-	progressJudgement(funcAfter){
+	progressJudgement(funcAfter, outAnswer, outVoteOr){
 		this.progressJudgement1()
 		if (this.playerPairs.length == 0){
 			nextRound()
@@ -228,36 +246,28 @@ class AbstractRound {
 		}
 		this.pp = this.playerPairs.splice(Math.floor(Math.random()*this.playerPairs.length), 1)[0]
 		replaceContent(playDiv, playDiv => {
-			var topP = document.createElement('p')
+			const topP = document.createElement('p')
 			topP.style["font-weight"] = "bold"
+			topP.setAttribute('lang', resPackLang)
 			topP.appendChild(document.createTextNode(this.pp.prompt.prompt))
 			playDiv.appendChild(topP)
 			
-			var aI = 0
-			var erstes = true
-			for(var xPlayer of this.pp.players) {
+			let aI = 0
+			let erstes = true
+			for(let xPlayer of this.pp.players) {
 				if (erstes) {
 					erstes = false
 				} else {
-					var xNode = document.createElement('p')
-					xNode.classList.add('answer')
-					xNode.setAttribute('lang', uebersetz.languages)
-					__("VoteOr", undefined, satz => xNode.appendChild(textToNode(satz)))
-					playDiv.appendChild(xNode)
-					playDiv.appendChild(document.createElement('br'))
+					outVoteOr()
 				}
-				var xPAnswer = document.createElement('p')
-				xPAnswer.classList.add('answer')
-				xPAnswer.setAttribute('lang', xPlayer.answers[aI].lang)
-				xPAnswer.appendChild(document.createTextNode(xPlayer.answers[aI]))
-				playDiv.appendChild(xPAnswer)
-				if (round != 3) {
+				outAnswer(xPlayer.answers[aI])
+				if (round != maxRounds) {
 					// pucgenie: how to refactor
 					aI ^= 1
 				}
 			}
 		})
-		var choices = {
+		const choices = {
 			"possibilities": this.getAllAnswers(),
 			"prompt": this.pp.prompt
 		}
@@ -268,18 +278,48 @@ class AbstractRound {
 		})
 		funcAfter(choices)
 	}
+	awardPoints(perPlayer){
+		for(let i = 0; i < this.votes.length; ++i){
+			let xPlayer = this.pp.players[i]
+			let xVotes = this.votes[i]
+			xPlayer.score += xVotes.length * round
+			xPlayer.netPlayer.sendCmd('updateScore', xPlayer.score)
+			perPlayer(xPlayer, xVotes)
+		}
+	}
 }
 
 class Round_1_2 extends AbstractRound {
 	nextRound1() {
-		for (var xPlayer of players) { //todo: could refactor this to use allPlayers
-			var xPrompt = pullPrompt()
-			var xOpponent = pullRandomPlayer(xPlayer)
-			var ppair = {players: [xPlayer, xOpponent], prompt: xPrompt}
+		// pucgenie: players need to be initialized beforehand (reset questions and answers)
+		allPlayers(p => {p.prompts = []; p.answers = []})
+		
+		// pucgenie: reduced one `if` of code and one global variable
+		//use slice to copy array values, not a reference:
+		let randomPlayers = players.slice()
+		
+		players.forEach((xPlayer, pIdx) => {
+			const xPrompt = pullPrompt()
+			
+			// pucgenie: exclude this player itself, of course
+			// pucgenie: don't create a new array, just move current player to one of the ends of the array.
+			
+			// pucgenie: unnecessarily swap one time and then don't need the condition :)
+			//if (pIdx == 0) {
+				randomPlayers[pIdx] = randomPlayers[0]
+				randomPlayers[0] = xPlayer
+			//}
+			const xOpponent = randomPlayers.length > 1 ? randomPlayers.splice(Math.floor(Math.random()*(randomPlayers.length-2))+1, 1)[0] : randomPlayers[0]
+			
+			if (xPlayer == xOpponent) {
+				console.log('crap')
+			}
+			
+			const ppair = {players: [xPlayer, xOpponent], prompt: xPrompt}
 			this.playerPairs.push(ppair)
 			xPlayer.prompts[0] = xPrompt
 			xOpponent.prompts[1] = xPrompt
-		}
+		})
 	}
 	progressJudgement1() {
 		this.votes = [[],[]]
@@ -287,30 +327,36 @@ class Round_1_2 extends AbstractRound {
 	getAllAnswers() {
 		return [this.pp.players[0].answers[0], this.pp.players[1].answers[1]]
 	}
+	allPlayersHaveAnswered(){
+		return allPlayers(p => p.answers.length==2)
+	}
 }
 
 class Round_3 extends AbstractRound {
 	nextRound1() {
-		var xPrompt = pullPrompt()
-		var ppair = {players: players, prompt: xPrompt}
+		const xPrompts = [pullPrompt()]
+		let ppair = {players: players, prompt: xPrompts[0]}
 		this.playerPairs.push(ppair)
-		for (var xPlayer of players) { //todo: could refactor this to use allPlayers
-			xPlayer.prompts[0] = xPrompt
+		for (let xPlayer of players) { //todo: could refactor this to use allPlayers
+			xPlayer.prompts = xPrompts
+			xPlayer.answers = new Array(1)
 		}
 	}
 	progressJudgement1() {
-		// pucgenie: experimental
 		this.votes = new Array(players.length)
-		for(var i = players.length; i --> 0; ) {
+		for(let i = players.length; i --> 0; ) {
 			this.votes[i] = []
 		}
 	}
 	getAllAnswers() {
-		var ret = []
-		for(var xPlayer of this.pp.players) {
+		let ret = new Array(this.pp.players.length)
+		for(let xPlayer of this.pp.players) {
 			ret.push(xPlayer.answers[0])
 		}
 		return ret
+	}
+	allPlayersHaveAnswered(){
+		return allPlayers(p => p.answers.length==1)
 	}
 }
 
@@ -318,8 +364,11 @@ const happyfuntimes = require('happyfuntimes')
 
 const server = new happyfuntimes.GameServer()
 
-var prompts
-lazyLoad('Quiplash/content/QuiplashQuestion.jet', rText => {
+const theResPack = 'Quiplash/content/QuiplashQuestion'
+const resPackLang = 'en'
+const maxRounds = 3 //a nice number of rounds
+let prompts
+lazyLoad(`${theResPack}.jet`, rText => {
 	prompts = JSON.parse(rText)['content']
 	/*
 	// temporary converter
@@ -331,38 +380,26 @@ lazyLoad('Quiplash/content/QuiplashQuestion.jet', rText => {
 	playDiv.appendChild(xPre)
 	*/
 })
+let gameBegun = false
+const players = []
+let round = 0
+let roundLogic = undefined
 
-// A new player has arrived.
+/**
+ * A new player has arrived.
+**/
 server.on('playerconnect', netPlayer => {
+	// pucgenie: why does one player connect 2 times? (2019-05-05) --> __() called callback multiple times.
+	//console.log(netPlayer)
 	if (gameBegun){
 		netPlayer.sendCmd('displayMessage', {template: "CantJoinRunningGame"})
-		return
+return
 	}
-	// pucgenie: possible race condition? No, JavaScript is single-threaded by default.
-	__("Player", {playerNum: players.length+1}, playerText => {
-		players.push(new Player(netPlayer, playerText))
-	})
+	const tmpPlayerName = []
+	__("Player", {playerNum: players.length+1}, Array.prototype.push.bind(tmpPlayerName))
+	players.push(new QuiplibrePlayer(netPlayer, tmpPlayerName.join('')))
 })
 
-// globals
-var gameBegun = false
-const players = []
-var round = 0
-var roundLogic = undefined
-const maxRounds = 3 //a nice number of rounds
-
-function getRoundLogic(roundNum) {
-	allPlayers(p => {p.prompts = []; p.answers = []})
-	switch (roundNum) {
-		case 1:
-		case 2:
-			return new Round_1_2()
-		case 3:
-			return new Round_3()
-	}
-}
-
-//game logic fns
 function nextRound(){
 	if (players.length <= 1){
 		replaceContentTranslated(playDiv, "NeedMorePlayers")
@@ -376,11 +413,11 @@ return
 		endGame()
 return
 	}
-	roundLogic = getRoundLogic(round)
+	roundLogic = round == maxRounds ? new Round_3() : new Round_1_2()
 	roundLogic.nextRound1()
-	for (var xPlayer of players) {
+	for (let xPlayer of players) {
 		xPlayer.netPlayer.sendCmd('displayPrompt', xPlayer.prompts[0])
-		xPlayer.state = round == 3 ? "prompt1" : "prompt0"
+		xPlayer.state = round == maxRounds ? "prompt1" : "prompt0"
 		xPlayer.promptId = xPlayer.prompts[0].id
 	}
 	replaceContentTranslated(playDiv, "RoundBanner", {roundNum: round})
@@ -388,78 +425,78 @@ return
 }
 
 function progressJudgement(){
+	let voteOr = []
+	__("VoteOr", undefined, Array.prototype.push.bind(voteOr))
+	voteOr = voteOr.join('')
+	
 	roundLogic.progressJudgement(choices => {
 		try {
-			var pfad1 = 'Quiplash/content/QuiplashQuestion/' + choices.prompt.id
+			const pfad1 = 'Quiplash/content/QuiplashQuestion/' + choices.prompt.id
 			lazyLoad(pfad1 + '/data.jet', rText => {
 				// pucgenie: Announce the question text.
-				var questionRead = new Audio(pfad1 + "/" + JSON.parse(rText)['fields'].filter(feld => feld['n'] == "PromptAudio")[0]['v'] + ".mp3")
+				let questionRead = new Audio(pfad1 + "/" + JSON.parse(rText)['fields'].filter(feld => feld['n'] == "PromptAudio")[0]['v'] + ".mp3")
 				questionRead.addEventListener('ended', () => {
-					var ausG = []
-					var slg = __('VoteOr', undefined, xTxt2 => ausG.push(xTxt2))
-					var sepMsg = new SpeechSynthesisUtterance(ausG[0])
-					sepMsg.lang = slg
+					let sepMsgT = {lang: undefined, text: undefined}
+					{
+						const ausG = []
+						sepMsgT.lang = __('VoteOr', undefined, xTxt2 => ausG.push(xTxt2))
+						sepMsgT.text = ausG.join('')
+					}
 					hintergrundmusik.pause()
-					var prevMsg = undefined
-					for(var xP of document.querySelectorAll('#playDiv .answer')) {
-						var msg = new SpeechSynthesisUtterance(xP.innerText)
+					let prevMsg = undefined
+					for(let xP of document.querySelectorAll('#playDiv .answer')) {
+						let msg = new SpeechSynthesisUtterance()
+						msg.text = xP.innerText
 						msg.lang = xP.getAttribute('lang')
-						if (prevMsg) {
-							prevMsg.addEventListener('end', () => {
-								sepMsg.addEventListener('end', () => {
-									window.speechSynthesis.speak(msg)
-								}, {once: true})
-								window.speechSynthesis.speak(sepMsg)
-							})
-						} else {
+						if (!prevMsg) {
 							window.speechSynthesis.speak(msg)
+					continue
 						}
+						prevMsg.addEventListener('end', () => {
+							let sepMsg = new SpeechSynthesisUtterance()
+							Object.assign(sepMsg, sepMsgT)
+							sepMsg.addEventListener('end', () => window.speechSynthesis.speak(msg), {once: true})
+							window.speechSynthesis.speak(sepMsg)
+						})
 						prevMsg = msg
 					}
-					prevMsg.addEventListener('end', () => {
-						hintergrundmusik.play()
-					})
+					prevMsg.addEventListener('end', () => hintergrundmusik.play())
 				})
 				questionRead.play()
 			})
 		} catch (soundExc) {
 			console.log({"nonFatalException": soundExc})
 		}
+	}, outAnswer => {
+		const xPAnswer = document.createElement('p')
+		xPAnswer.classList.add('answer')
+		xPAnswer.setAttribute('lang', outAnswer.lang)
+		xPAnswer.appendChild(document.createTextNode(outAnswer.answer))
+		playDiv.appendChild(xPAnswer)
+	}, () => {
+		const xNode = document.createElement('p')
+		xNode.classList.add('answer')
+		xNode.setAttribute('lang', uebersetz.languages)
+		xNode.appendChild(textToNode(voteOr))
+		playDiv.appendChild(xNode)
 	})
-}
-
-function awardPoints(){
-	attrDiv.style.display = 'none'
-	prevDiv.style.display = 'none'
-	clearElementChilds(prevDiv)
-	__("PreviousResults", undefined, satz => prevDiv.appendChild(textToNode(satz)))
-	
-	for(var i = 0; i < roundLogic.votes.length; ++i){
-		var xPlayer = roundLogic.pp.player[i]
-		var xVotes = roundLogic.votes[i]
-		xPlayer.score += xVotes.length * round
-		xPlayer.netPlayer.sendCmd("updateScore", xPlayer.score)
-		__("wonVotesPoints", {"Player": xPlayer, "Votes": xVotes}, xNeu => prevDiv.appendChild(textToNode(xNeu)))
-	}
-	prevDiv.appendChild(document.createElement('br'))
-	prevDiv.style.display = 'block'
 }
 
 function endGame(){
 	sortPlayers()
 	replaceContent(playDiv, playDiv => {
 		playDiv.appendChild(replaceContentTranslated(document.createElement('p'), "GameEndedScore"))
-		var xTbody = document.createElement('tbody')
+		const xTbody = document.createElement('tbody')
 		players.forEach(p => {
-			var xTr = document.createElement('tr')
+			const xTr = document.createElement('tr')
 			new Array(p.name, p.score).forEach(xTxt => {
-				var xTd = document.createElement('td')
+				let xTd = document.createElement('td')
 				xTd.appendChild(textToNode(xTxt))
 				xTr.appendChild(xTd)
 			})
 			xTbody.appendChild(xTr)
 		})
-		var xTable = document.createElement('table')
+		const xTable = document.createElement('table')
 		xTable.classList.add('scoreboard')
 		xTable.appendChild(xTbody)
 		playDiv.appendChild(xTable)
@@ -481,6 +518,7 @@ function newGame(){
 	})
 	// pucgenie: disabled exceptional line of code.
 	//nextRound()
+	// Now it is possible for players to leave and join before nextRound() is called (e.g. by tapping on a button).
 	buttonDiv.style.display = 'block'
 }
 
@@ -491,34 +529,17 @@ function pullPrompt(){
 	if (prompts.length == 0){
 		return {prompt: "What's a good prompt for a round of Quiplibre?"+
 			" (Please send us the winning answer of this round, "+
-			"as you have exhausted our list of prompts)", id: 0}
+			"as you have exhausted our list of prompts)", id: 1}
 	}
 	return prompts.splice(Math.floor(Math.random()*prompts.length), 1)[0]
 }
 
-var randomPlayers = []
-function pullRandomPlayer(excludedPlayer){
-	//remember that excludedPlayer is just a reference to a player
-	//use slice to copy array values, not a reference:
-	if (randomPlayers.length == 0){
-		randomPlayers = players.slice()
-	}
-	tmpPlayers = randomPlayers.filter(p => (p != excludedPlayer))
-	var i = Math.floor(Math.random()*(randomPlayers.length-1))
-	randomPlayers = randomPlayers.filter(p => (p != tmpPlayers[i]))
-	return tmpPlayers[i]
-}
-
 function allPlayers(pred){ //query all players or apply a fn to them
-	ret = true
-	for (var xPlayer of players) {
+	let ret = true
+	for (let xPlayer of players) {
 		ret = (pred(xPlayer)) && ret //must avoid short-circuit eval
 	}
 	return ret
-}
-
-function allPlayersHaveAnswered(){
-	return allPlayers(p => p.answers.length==2)
 }
 
 function sortPlayers(){//descending. In-place and returns arr
