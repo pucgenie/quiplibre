@@ -14,15 +14,21 @@ function nachDemLaden() {
 		replaceContentTranslated(elem, elem.getAttribute('data-tlk'))
 		//elem.removeAttribute('data-tlk')
 	})
-	
-	titelvideo.addEventListener('play', evt => {
-		hintergrundmusik.pause()
-	})
-	const fortsetzer = evt => {
-		hintergrundmusik.play()
+	if(secretHintergrundmusik){
+		hintergrundmusik.setAttribute('src', secretHintergrundmusik)
+		const fortsetzer = evt => {
+			hintergrundmusik.play()
+		}
+		fortsetzer()
+		if(secretTitelvideo){
+			titelvideo.setAttribute('src', secretTitelvideo)
+			titelvideo.addEventListener('play', evt => {
+				hintergrundmusik.pause()
+			})
+			titelvideo.addEventListener('pause', fortsetzer)
+			titelvideo.addEventListener('ended', fortsetzer)
+		}
 	}
-	titelvideo.addEventListener('pause', fortsetzer)
-	titelvideo.addEventListener('ended', fortsetzer)
 }
 
 /**
@@ -87,115 +93,110 @@ class AbstractPlayer {
 		hslArr = (hslArr[0] << 16) | (hslArr[1] << 8) | hslArr[2]
 		this.color = '#' + hslArr.toString(16).padStart(6, '0')
 		
-		netPlayer.addEventListener('disconnect',    AbstractPlayer.prototype.disconnect.bind(this))
-		netPlayer.addEventListener('receiveAnswer', AbstractPlayer.prototype.handleAnswer.bind(this))
-		netPlayer.addEventListener('receiveChoice', AbstractPlayer.prototype.handleChoice.bind(this))
-		netPlayer.addEventListener('userLang',      AbstractPlayer.prototype.handleUserLang.bind(this), {once: true})
-	}
-
-	disconnect() {
-		const ndx = players.indexOf(this)
-		if (ndx >= 0) {
-			players.splice(ndx, 1)
-		} else {
-			console.log({"notfound": this})
-		}
-		clearElementChilds(playDiv)
-		renderTotalPlayersText(playDiv)
+		netPlayer.addEventListener('disconnect', () => {
+			const ndx = players.indexOf(this)
+			if (ndx >= 0) {
+				players.splice(ndx, 1)
+			} else {
+				console.log({"notfound": this})
+			}
+			clearElementChilds(playDiv)
+			renderTotalPlayersText(playDiv)
+		})
+		netPlayer.addEventListener('receiveAnswer', cmd => {
+			//the idea is to check if the response is to the right question
+			//to prevent errors
+			//console.log(this);
+			//console.log({"promptId":cmd.promptId, "answer":cmd.answer});
+			if(cmd.answer==""){
+				this.displayMessage("ignoringEmptyCmdAnswer")
+		return
+			}
+			switch (this.state) {
+			case "rest":
+				this.displayMessage("RestStateSoNoAction")
+			break
+			case "nameless":
+				if (cmd.promptId != 0) {
+					this.displayMessage("NamelessUnexpectedPrompt", {promptId: cmd.promptId})
+		return
+				}
+				this.name = cmd.answer
+				this.color = cmd.color
+				this.netPlayer.sendCmd('updateName', {name: this.name, color: this.color})
+				// pucgenie: why updateScore?
+				this.netPlayer.sendCmd('updateScore', 0)
+				this.state = "rest"
+				this.displayMessage("GetReady")
+				replaceContent(playDiv, playDiv => {
+					__("LastPlayerJoined", undefined, satz => playDiv.appendChild(textToNode(satz)))
+					const xB = document.createElement('b')
+					xB.appendChild(document.createTextNode(cmd.answer))
+					xB.style.color = this.color
+					playDiv.appendChild(xB)
+					playDiv.appendChild(document.createElement('br'))
+					renderTotalPlayersText(playDiv)
+				})
+			break
+			default:
+				this.handleAnswer0(cmd)
+			break
+			}
+		})
+		netPlayer.addEventListener('receiveChoice', cmd => {
+			//console.log(cmd)
+			//console.log(this)
+			if(cmd.promptId != this.promptId){//remember, == does not work on arrays
+				console.log({"error": "ignoring choice as it's between incorrect options", "remotePromptId": cmd.promptId, "expectedPromptId": this.promptId})
+				return
+			}
+			if(this.state != "choosing"){
+				console.log("ignoring choice as player state is "+this.state)
+				this.displayMessage("SuspectHacker")
+		return
+			}
+			roundLogic.votes[cmd.index].push(this)
+			if (round != maxRounds || ++this.voteCountR3 == maxRounds) {
+				// WastedSpark(tm)
+				this.voteCountR3 = 0
+				this.state = "rest"
+				this.displayMessage("YouVotedFor", {voteNumber: cmd.index+1})
+				let stimmenSumme = 0
+				for(let voteN of roundLogic.votes) {
+					stimmenSumme += voteN.length
+				}
+				let voteFactor = round == maxRounds ? maxRounds : 1
+				if(stimmenSumme >= players.length * voteFactor){
+					if (stimmenSumme > players.length * voteFactor) {
+						console.log("There are more votes than players!")
+					}
+					attrDiv.style.display = 'none'
+					replaceContent(prevDiv, prevDiv => {
+						__("PreviousResults", undefined, satz => prevDiv.appendChild(textToNode(satz)))
+						
+						roundLogic.awardPoints((xPlayer, xVotes) => {
+							let xPDe = document.createElement('p')
+							__("wonVotesPoints", {"Player": xPlayer, "Votes": xVotes}, xNeu => xPDe.appendChild(textToNode(xNeu)))
+							prevDiv.appendChild(xPDe)
+						})
+						
+						prevDiv.appendChild(document.createElement('br'))
+					})
+					progressJudgement()
+				}
+			}
+		})
+		netPlayer.addEventListener('userLang', cmd => {
+			//console.log(cmd)
+			this.userLang = cmd
+			this.netPlayer.sendCmd('displayPrompt', {id: 0, prompt: undefined, lang: undefined, color: this.color, resPack: theResPack})
+		}, {once: true})
 	}
 	/**
 	 * A wrapper for sendCmd('displayMessage', ...) without obvious reflection semantics etc..
 	**/
 	displayMessage(template, params){
 		this.netPlayer.sendCmd('displayMessage', {template: template, params: params})
-	}
-	handleAnswer(cmd){
-		//the idea is to check if the response is to the right question
-		//to prevent errors
-		//console.log(this);
-		//console.log({"promptId":cmd.promptId, "answer":cmd.answer});
-		if(cmd.answer==""){
-			this.displayMessage("ignoringEmptyCmdAnswer")
-	return
-		}
-		switch (this.state) {
-		case "rest":
-			this.displayMessage("RestStateSoNoAction")
-		break
-		case "nameless":
-			if (cmd.promptId != 0) {
-				this.displayMessage("NamelessUnexpectedPrompt", {promptId: cmd.promptId})
-	return
-			}
-			this.name = cmd.answer
-			this.color = cmd.color
-			this.netPlayer.sendCmd('updateName', {name: this.name, color: this.color})
-			// pucgenie: why updateScore?
-			this.netPlayer.sendCmd('updateScore', 0)
-			this.state = "rest"
-			this.displayMessage("GetReady")
-			replaceContent(playDiv, playDiv => {
-				__("LastPlayerJoined", undefined, satz => playDiv.appendChild(textToNode(satz)))
-				const xB = document.createElement('b')
-				xB.appendChild(document.createTextNode(cmd.answer))
-				xB.style.color = this.color
-				playDiv.appendChild(xB)
-				playDiv.appendChild(document.createElement('br'))
-				renderTotalPlayersText(playDiv)
-			})
-		break
-		default:
-			this.handleAnswer0(cmd)
-		break
-		}
-	}
-	handleChoice(cmd){
-		//console.log(cmd)
-		//console.log(this)
-		if(cmd.promptId != this.promptId){//remember, == does not work on arrays
-			console.log({"error": "ignoring choice as it's between incorrect options", "remotePromptId": cmd.promptId, "expectedPromptId": this.promptId})
-			return
-		}
-		if(this.state != "choosing"){
-			console.log("ignoring choice as player state is "+this.state)
-			this.displayMessage("SuspectHacker")
-	return
-		}
-		roundLogic.votes[cmd.index].push(this)
-		if (round != maxRounds || ++this.voteCountR3 == maxRounds) {
-			// WastedSpark(tm)
-			this.voteCountR3 = 0
-			this.state = "rest"
-			this.displayMessage("YouVotedFor", {voteNumber: cmd.index+1})
-			let stimmenSumme = 0
-			for(let voteN of roundLogic.votes) {
-				stimmenSumme += voteN.length
-			}
-			let voteFactor = round == maxRounds ? maxRounds : 1
-			if(stimmenSumme >= players.length * voteFactor){
-				if (stimmenSumme > players.length * voteFactor) {
-					console.log("There are more votes than players!")
-				}
-				attrDiv.style.display = 'none'
-				replaceContent(prevDiv, prevDiv => {
-					__("PreviousResults", undefined, satz => prevDiv.appendChild(textToNode(satz)))
-					
-					roundLogic.awardPoints((xPlayer, xVotes) => {
-						let xPDe = document.createElement('p')
-						__("wonVotesPoints", {"Player": xPlayer, "Votes": xVotes}, xNeu => xPDe.appendChild(textToNode(xNeu)))
-						prevDiv.appendChild(xPDe)
-					})
-					
-					prevDiv.appendChild(document.createElement('br'))
-				})
-				progressJudgement()
-			}
-		}
-	}
-	handleUserLang(cmd){
-		//console.log(cmd)
-		this.userLang = cmd
-		this.netPlayer.sendCmd('displayPrompt', {id: 0, prompt: undefined, lang: undefined, color: this.color, resPack: theResPack})
 	}
 }
 AbstractPlayer.prototype.toString = function(){return this.name}
@@ -237,6 +238,14 @@ class AbstractRound {
 		this.votes = undefined
 		this.pp = undefined
 		this.playerPairs = []
+	}
+	static pullPrompt(){
+		if (prompts.length == 0){
+			return {prompt: "What's a good prompt for a round of Quiplibre?"+
+				" (Please send us the winning answer of this round, "+
+				"as you have exhausted our list of prompts)", id: 1}
+		}
+		return prompts.splice(Math.floor(Math.random()*prompts.length), 1)[0]
 	}
 	progressJudgement(funcAfter, outAnswer, outVoteOr){
 		this.progressJudgement1()
@@ -299,24 +308,31 @@ class Round_1_2 extends AbstractRound {
 		let randomPlayers = players.slice()
 		
 		players.forEach((xPlayer, pIdx) => {
-			const xPrompt = pullPrompt()
-			
 			// pucgenie: exclude this player itself, of course
 			// pucgenie: don't create a new array, just move current player to one of the ends of the array.
 			
-			// pucgenie: unnecessarily swap one time and then don't need the condition :)
-			//if (pIdx == 0) {
-				randomPlayers[pIdx] = randomPlayers[0]
-				randomPlayers[0] = xPlayer
-			//}
-			const xOpponent = randomPlayers.length > 1 ? randomPlayers.splice(Math.floor(Math.random()*(randomPlayers.length-2))+1, 1)[0] : randomPlayers[0]
+			let xOpponent
+			if (randomPlayers.length > 1) {
+				// pucgenie: unnecessarily swap one time and then don't need the condition :)
+				//if (pIdx > 0) {
+					randomPlayers[pIdx] = randomPlayers[0]
+					randomPlayers[0] = xPlayer
+				//}
+				let i = Math.floor(Math.random()*(randomPlayers.length-2))+1
+				console.log({"len": randomPlayers.length, "i": i})
+				xOpponent = randomPlayers.splice(i, 1)[0]
+			} else {
+				xOpponent = randomPlayers[0]
+			}
 			
 			if (xPlayer == xOpponent) {
 				console.log('crap')
 			}
 			
+			const xPrompt = AbstractRound.pullPrompt()
 			const ppair = {players: [xPlayer, xOpponent], prompt: xPrompt}
 			this.playerPairs.push(ppair)
+			console.log({'assignedPromptsTo': [xPlayer, xOpponent]})
 			xPlayer.prompts[0] = xPrompt
 			xOpponent.prompts[1] = xPrompt
 		})
@@ -334,7 +350,7 @@ class Round_1_2 extends AbstractRound {
 
 class Round_3 extends AbstractRound {
 	nextRound1() {
-		const xPrompts = [pullPrompt()]
+		const xPrompts = [AbstractRound.pullPrompt()]
 		let ppair = {players: players, prompt: xPrompts[0]}
 		this.playerPairs.push(ppair)
 		for (let xPlayer of players) { //todo: could refactor this to use allPlayers
@@ -364,10 +380,10 @@ const happyfuntimes = require('happyfuntimes')
 
 const server = new happyfuntimes.GameServer()
 
-const theResPack = 'Quiplash/content/QuiplashQuestion'
-const resPackLang = 'en'
 const maxRounds = 3 //a nice number of rounds
 let prompts
+
+
 lazyLoad(`${theResPack}.jet`, rText => {
 	prompts = JSON.parse(rText)['content']
 	/*
@@ -416,9 +432,9 @@ return
 	roundLogic = round == maxRounds ? new Round_3() : new Round_1_2()
 	roundLogic.nextRound1()
 	for (let xPlayer of players) {
-		xPlayer.netPlayer.sendCmd('displayPrompt', xPlayer.prompts[0])
 		xPlayer.state = round == maxRounds ? "prompt1" : "prompt0"
 		xPlayer.promptId = xPlayer.prompts[0].id
+		xPlayer.netPlayer.sendCmd('displayPrompt', xPlayer.prompts[0])
 	}
 	replaceContentTranslated(playDiv, "RoundBanner", {roundNum: round})
 	buttonDiv.style.display = 'none'
@@ -524,15 +540,6 @@ function newGame(){
 
 //helper & utility fns
 function display(html){playDiv.innerHTML = html}
-
-function pullPrompt(){
-	if (prompts.length == 0){
-		return {prompt: "What's a good prompt for a round of Quiplibre?"+
-			" (Please send us the winning answer of this round, "+
-			"as you have exhausted our list of prompts)", id: 1}
-	}
-	return prompts.splice(Math.floor(Math.random()*prompts.length), 1)[0]
-}
 
 function allPlayers(pred){ //query all players or apply a fn to them
 	let ret = true
