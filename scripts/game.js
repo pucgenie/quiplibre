@@ -14,14 +14,14 @@ function nachDemLaden() {
 		replaceContentTranslated(elem, elem.getAttribute('data-tlk'))
 		//elem.removeAttribute('data-tlk')
 	})
-	if(secretHintergrundmusik){
-		hintergrundmusik.setAttribute('src', secretHintergrundmusik)
+	if(window.secretHintergrundmusik){
+		hintergrundmusik.setAttribute('src', window.secretHintergrundmusik)
 		const fortsetzer = evt => {
 			hintergrundmusik.play()
 		}
 		fortsetzer()
-		if(secretTitelvideo){
-			titelvideo.setAttribute('src', secretTitelvideo)
+		if(window.secretTitelvideo){
+			titelvideo.setAttribute('src', window.secretTitelvideo)
 			titelvideo.addEventListener('play', evt => {
 				hintergrundmusik.pause()
 			})
@@ -189,7 +189,7 @@ class AbstractPlayer {
 		netPlayer.addEventListener('userLang', cmd => {
 			//console.log(cmd)
 			this.userLang = cmd
-			this.netPlayer.sendCmd('displayPrompt', {id: 0, prompt: undefined, lang: undefined, color: this.color, resPack: theResPack})
+			this.netPlayer.sendCmd('displayPrompt', {id: 0, prompt: undefined, lang: undefined, color: this.color, resPack: window.theResPack})
 		}, {once: true})
 	}
 	/**
@@ -240,12 +240,12 @@ class AbstractRound {
 		this.playerPairs = []
 	}
 	static pullPrompt(){
-		if (prompts.length == 0){
+		if (window.prompts.length == 0){
 			return {prompt: "What's a good prompt for a round of Quiplibre?"+
 				" (Please send us the winning answer of this round, "+
 				"as you have exhausted our list of prompts)", id: 1}
 		}
-		return prompts.splice(Math.floor(Math.random()*prompts.length), 1)[0]
+		return window.prompts.splice(Math.floor(Math.random()*window.prompts.length), 1)[0]
 	}
 	progressJudgement(funcAfter, outAnswer, outVoteOr){
 		this.progressJudgement1()
@@ -257,7 +257,9 @@ class AbstractRound {
 		replaceContent(playDiv, playDiv => {
 			const topP = document.createElement('p')
 			topP.style["font-weight"] = "bold"
-			topP.setAttribute('lang', resPackLang)
+			if(window.resPackLang){
+				topP.setAttribute('lang', window.resPackLang)
+			}
 			topP.appendChild(document.createTextNode(this.pp.prompt.prompt))
 			playDiv.appendChild(topP)
 			
@@ -381,21 +383,21 @@ const happyfuntimes = require('happyfuntimes')
 const server = new happyfuntimes.GameServer()
 
 const maxRounds = 3 //a nice number of rounds
-let prompts
 
-
-lazyLoad(`${theResPack}.jet`, rText => {
-	prompts = JSON.parse(rText)['content']
-	/*
-	// temporary converter
-	var xPre = document.createElement('pre')
-	for(var xP of prompts) {
-		xPre.appendChild(document.createTextNode(`"${xP.id}": "${xP.prompt}",
+if(window.theResPack){
+	lazyLoad(`${window.theResPack}.jet`, rText => {
+		window.prompts = JSON.parse(rText)['content']
+		/*
+		// temporary converter
+		var xPre = document.createElement('pre')
+		for(var xP of prompts) {
+			xPre.appendChild(document.createTextNode(`"${xP.id}": "${xP.prompt}",
 `))
-	}
-	playDiv.appendChild(xPre)
-	*/
-})
+		}
+		playDiv.appendChild(xPre)
+		*/
+	})
+}
 let gameBegun = false
 const players = []
 let round = 0

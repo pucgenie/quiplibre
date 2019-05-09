@@ -33,7 +33,6 @@ function nachDemLaden() {
 		const txData = {
 			promptId: promptDiv.getAttribute("promptid"),
 			answer: inputBox.value,
-			// pucgenie: TODO: sollte auswählbar gemacht werden
 			lang: langBox.value
 		}
 		if (txData.promptId == 0) {
@@ -72,11 +71,18 @@ function nachDemLaden() {
 				// pucgenie: debug undefined first entry
 				//console.log(uebersetz.languages)
 				
-				// pucgenie: deprecated
-				//window.resPack = prompt.resPack
-				lazyLoad(`${prompt.resPack}_${uebersetz.languages[0]}.json`, rText => {
-					window.prompts2 = JSON.parse(rText)
-				}, (xhr, progressEvent) => {})
+				if(prompt.resPack){
+					lazyLoad(`${prompt.resPack}_${uebersetz.languages[0]}.json`, rText => {
+						window.prompts2 = JSON.parse(rText)
+					}, (xhr, progressEvent) => {
+						if(xhr.status !== 404){
+					return
+						}
+						lazyLoad(`${prompt.resPack}_${uebersetz.languages[1]}.json`, rText => {
+							window.prompts2 = JSON.parse(rText)
+						}, (xhr, progressEvent) => {})
+					})
+				}
 				const colorpicker = document.createElement('input')
 				colorpicker.setAttribute('type', 'color')
 				colorpicker.value = prompt.color
