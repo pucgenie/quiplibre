@@ -68,20 +68,31 @@ function nachDemLaden() {
 			}
 			promptDiv.appendChild(document.createTextNode(prompt.prompt))
 			if (prompt.id == 0) {
-				// pucgenie: debug undefined first entry
-				//console.log(uebersetz.languages)
-				
 				if(prompt.resPack){
-					lazyLoad(`${prompt.resPack}_${uebersetz.languages[0]}.json`, rText => {
+					function* forLanguages() {
+						for(let xLang of uebersetz.languages){
+							yield `${prompt.resPack}_${xLang}.json`
+						}
+					}
+					const langIter = forLanguages()
+					const saveParsed = rText => {
 						window.prompts2 = JSON.parse(rText)
-					}, (xhr, progressEvent) => {
+					}
+					const retryHandler1 = (xhr, progressEvent) => {
 						if(xhr.status !== 404){
 					return
 						}
-						lazyLoad(`${prompt.resPack}_${uebersetz.languages[1]}.json`, rText => {
-							window.prompts2 = JSON.parse(rText)
-						}, (xhr, progressEvent) => {})
-					})
+						if(progressEvent !== "bootstrap"){
+							// pucgenie: debug or trace?
+							console.log(progressEvent, xhr.status)
+						}
+						const xLang = langIter.next().value
+						if (!xLang){
+					return
+						}
+						lazyLoad(xLang, saveParsed, retryHandler1)
+					}
+					retryHandler1({status: 404}, "bootstrap")
 				}
 				const colorpicker = document.createElement('input')
 				colorpicker.setAttribute('type', 'color')

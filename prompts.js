@@ -1,4 +1,5 @@
 "use strict";
+// prompt.id 0 is reserved for questions not related to rounds (like "What's your name?" etc.)
 window.prompts = [
 	{"id":"10", "prompt":"___ was my nickname in high school."},
 	{"id":"11", "prompt":"___ was my band name in high school."},
