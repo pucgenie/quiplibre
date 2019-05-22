@@ -93,37 +93,6 @@ function shuffle(a) {
     return a
 }
 
-function renderTotalPlayersText() {
-	__("TotalPlayers", {totalPlayerCount: players.length}, satz => playDiv.appendChild(textToNode(satz)))
-}
-
-function renderNewestPlayer(xPlayer) {
-	replaceContent(playDiv, playDiv => {
-		__("LastPlayerJoined", undefined, satz => playDiv.appendChild(textToNode(satz)))
-		const xB = document.createElement('b')
-		xB.appendChild(document.createTextNode(xPlayer.name))
-		xB.style['color'] = xPlayer.color
-		playDiv.appendChild(xB)
-		playDiv.appendChild(document.createElement('br'))
-		renderTotalPlayersText()
-	})
-}
-
-function renderPreviousResults() {
-	attrDiv.style['display'] = 'none'
-	replaceContent(prevDiv, prevDiv => {
-		__("PreviousResults", undefined, satz => prevDiv.appendChild(textToNode(satz)))
-		
-		roundLogic.awardPoints((xPlayer, xVotes) => {
-			let xPDe = document.createElement('p')
-			__("wonVotesPoints", {"Player": xPlayer, "Votes": xVotes}, xNeu => xPDe.appendChild(textToNode(xNeu)))
-			prevDiv.appendChild(xPDe)
-		})
-		
-		prevDiv.appendChild(document.createElement('br'))
-	})
-}
-
 function pullPrompt(){
 	if (window.prompts.length == 0){
 return {prompt: "What's a good prompt for a round of Quiplibre? (Please send us the winning answer of this round, as you have exhausted our list of prompts)", id: 1}
@@ -184,149 +153,189 @@ if(QuiplibreConfig.theResPack){
 		*/
 	})
 }
-let   gameBegun  = false
-const players    = []
-const newPlayers = new Array(3)
-let   round      = 0
-let   roundLogic = undefined
+class QuiplibreContext {
+	constructor(){
+		this.gameBegun  = false
+		this.players    = []
+		this.newPlayers = new Array(3)
+		this.round      = 0
+		this.roundLogic = undefined
+	}
+	renderTotalPlayersText() {
+		__("TotalPlayers", {totalPlayerCount: this.players.length}, satz => playDiv.appendChild(textToNode(satz)))
+	}
+	renderPreviousResults() {
+		attrDiv.style['display'] = 'none'
+		replaceContent(prevDiv, prevDiv => {
+			__("PreviousResults", undefined, satz => prevDiv.appendChild(textToNode(satz)))
+			
+			this.roundLogic.awardPoints((xPlayer, xVotes) => {
+				let xPDe = document.createElement('p')
+				__("wonVotesPoints", {"Player": xPlayer, "Votes": xVotes}, xNeu => xPDe.appendChild(textToNode(xNeu)))
+				prevDiv.appendChild(xPDe)
+			})
+			
+			prevDiv.appendChild(document.createElement('br'))
+		})
+	}
+	renderNewestPlayer(xPlayer) {
+		replaceContent(playDiv, playDiv => {
+			__("LastPlayerJoined", undefined, satz => playDiv.appendChild(textToNode(satz)))
+			const xB = document.createElement('b')
+			xB.appendChild(document.createTextNode(xPlayer.name))
+			xB.style['color'] = xPlayer.color
+			playDiv.appendChild(xB)
+			playDiv.appendChild(document.createElement('br'))
+			this.renderTotalPlayersText()
+		})
+		if(this.players.length >= 2){
+			buttonDiv.style['display'] = 'block'
+		}
+	}
+	nextRound(){
+		if (this.players.length <= 1){
+			replaceContentTranslated(playDiv, "NeedMorePlayers")
+	return
+		}
+		buttonDiv.style['display']  = 'none'
+		titelvideo.pause()
+		titelvideo.style['display'] = 'none'
+		//clearElementChilds(playDiv)
+		this.gameBegun = true
+		if (++this.round > this.maxRounds){
+			this.sortPlayers()
+			replaceContent(playDiv, playDiv => {
+				playDiv.appendChild(replaceContentTranslated(document.createElement('p'), "GameEndedScore"))
+				const xTbody = document.createElement('tbody')
+				this.players.forEach(p => {
+					const xTr = document.createElement('tr')
+					new Array(p.name, p.score).forEach(xTxt => {
+						const xTd = document.createElement('td')
+						xTd.appendChild(textToNode(xTxt))
+						xTr.appendChild(xTd)
+					})
+					xTbody.appendChild(xTr)
+				})
+				const xTable = document.createElement('table')
+				xTable.classList.add('scoreboard')
+				xTable.appendChild(xTbody)
+				playDiv.appendChild(xTable)
+			})
+			gameCtrlDiv.style['display'] = 'block'
+			attrDiv.style['display']     = 'block'
+			titelvideo.style['display']  = 'block'
+			this.players.forEach(xPlayer => xPlayer.displayMessage("GameEnded"))
+			// pucgenie: allows new players to join
+			this.gameBegun = false
+			// pucgenie: garbage
+			this.roundLogic = undefined
+	return
+		}
+		this.roundLogic = round < maxRounds ? new Round_1_2(this) : new Round_3(this)
+		this.roundLogic.nextRound1()
+		for (let xPlayer of players) {
+			xPlayer.stateStep(round == this.maxRounds ? 'prompt1' : 'prompt0')
+			xPlayer.promptId = xPlayer.prompts[0].id
+			xPlayer.netPlayer.sendCmd('displayPrompt', xPlayer.prompts[0])
+		}
+		replaceContentTranslated(playDiv, "RoundBanner", {roundNum: round})
+	}
+	perPPJudgement(pp) {
+		replaceContent(playDiv, playDiv => {
+			const topP = document.createElement('p')
+			topP.style['font-weight'] = 'bold'
+			if(QuiplibreConfig.resPackLang){
+				topP.setAttribute('lang', QuiplibreConfig.resPackLang)
+			}
+			topP.appendChild(document.createTextNode(pp.prompt.prompt))
+			playDiv.appendChild(topP)
+			
+			let aI = 0
+			let erstes = true
+			// pucgenie: microoptimization, enhances readability too
+			const _voteOr = textCache.voteOr
+			for (let i = 0; i < this.pp.players.length; ++i) {
+				let xPlayer = this.pp.players[i]
+				if (erstes) {
+					erstes = false
+				} else {
+					playDiv.appendChild(createLangTextNode('answer', _voteOr.text, _voteOr.lang))
+				}
+				const outAnswer = xPlayer.answers[this.roundLogic.getAnswerIndex(i)]
+				playDiv.appendChild(createLangTextNode('answer', outAnswer.answer, outAnswer.lang))
+			}
+		})
+	}
+	renderChoices(choices){
+		if(!QuiplibreConfig.theResPack){
+	return
+		}
+		try {
+			const pfad1 = `${QuiplibreConfig.theResPack}/${choices.prompt.id}`
+			lazyLoad(pfad1 + QuiplibreConfig.dataFileName, rText => {
+				// pucgenie: Announce the question text.
+				let questionRead = new Audio(pfad1 + '/' + JSON.parse(rText)['fields'].filter(feld => feld['n'] === "PromptAudio")[0]['v'] + ".mp3")
+				questionRead.addEventListener('ended', () => {
+					hintergrundmusik.pause()
+					let prevMsg = undefined
+					for(let xP of document.querySelectorAll('#playDiv .answer')) {
+						const msg = new SpeechSynthesisUtterance()
+						msg.text = xP.innerText
+						msg.lang = xP.getAttribute('lang')
+						if (!prevMsg) {
+							window.speechSynthesis.speak(msg)
+					continue
+						}
+						prevMsg.addEventListener('end', () => {
+							const sepMsg = new SpeechSynthesisUtterance()
+							Object.assign(sepMsg, textCache.voteOr)
+							sepMsg.addEventListener('end', () => window.speechSynthesis.speak(msg), {once: true})
+							window.speechSynthesis.speak(sepMsg)
+						})
+						prevMsg = msg
+					}
+					prevMsg.addEventListener('end', () => hintergrundmusik.play())
+				})
+				questionRead.play()
+			})
+		} catch (soundExc) {
+			console.log({"nonFatalException": soundExc})
+		}
+	}
+	newGame(){
+		gameCtrlDiv.style['display'] = 'none'
+		replaceContentTranslated(prevDiv, "PreviousWinner", {Player: players[0]})
+		this.round = 0
+		allPlayers(p => {
+			p.score = 0
+			p.netPlayer.sendCmd('updateScore', 0)
+		})
+		// pucgenie: disabled exceptional line of code.
+		//nextRound()
+		// Now it is possible for players to leave and join before nextRound() is called (e.g. by tapping on a button).
+		buttonDiv.style['display'] = 'block'
+	}
+	sortPlayers(){//descending. In-place and returns arr
+		return this.players.sort((a, b) => (b.score - a.score))
+	}
+	playerConnect(netPlayer){
+		// pucgenie: why does one player connect 2 times? (2019-05-05) --> __() called callback multiple times.
+		//console.log(netPlayer)
+		const tmpPlayerName = []
+		__("Player", {playerNum: this.players.length+1}, Array.prototype.push.bind(tmpPlayerName))
+		this.newPlayers.push(new QuiplibrePlayer(netPlayer, tmpPlayerName.join(''), this))
+	}
+}
 
+/**
+ * Accessed by button click handlers.
+ * @author pucgenie
+**/
+window.quiplCtx = new QuiplibreContext()
 /**
  * A new player has arrived.
 **/
-server.on('playerconnect', netPlayer => {
-	// pucgenie: why does one player connect 2 times? (2019-05-05) --> __() called callback multiple times.
-	//console.log(netPlayer)
-	const tmpPlayerName = []
-	__("Player", {playerNum: players.length+1}, Array.prototype.push.bind(tmpPlayerName))
-	newPlayers.push(new QuiplibrePlayer(netPlayer, tmpPlayerName.join('')))
-})
-
-function nextRound(){
-	if (players.length <= 1){
-		replaceContentTranslated(playDiv, "NeedMorePlayers")
-return
-	}
-	buttonDiv.style['display']  = 'none'
-	titelvideo.pause()
-	titelvideo.style['display'] = 'none'
-	//clearElementChilds(playDiv)
-	gameBegun = true
-	if (++round > maxRounds){
-		sortPlayers()
-		replaceContent(playDiv, playDiv => {
-			playDiv.appendChild(replaceContentTranslated(document.createElement('p'), "GameEndedScore"))
-			const xTbody = document.createElement('tbody')
-			players.forEach(p => {
-				const xTr = document.createElement('tr')
-				new Array(p.name, p.score).forEach(xTxt => {
-					const xTd = document.createElement('td')
-					xTd.appendChild(textToNode(xTxt))
-					xTr.appendChild(xTd)
-				})
-				xTbody.appendChild(xTr)
-			})
-			const xTable = document.createElement('table')
-			xTable.classList.add('scoreboard')
-			xTable.appendChild(xTbody)
-			playDiv.appendChild(xTable)
-		})
-		gameCtrlDiv.style['display'] = 'block'
-		attrDiv.style['display']     = 'block'
-		titelvideo.style['display']  = 'block'
-		players.forEach(xPlayer => xPlayer.displayMessage("GameEnded"))
-		// pucgenie: allows new players to join
-		gameBegun = false
-		// pucgenie: garbage
-		roundLogic = undefined
-return
-	}
-	roundLogic = round < maxRounds ? new Round_1_2() : new Round_3()
-	roundLogic.nextRound1()
-	for (let xPlayer of players) {
-		xPlayer.stateStep(round == maxRounds ? 'prompt1' : 'prompt0')
-		xPlayer.promptId = xPlayer.prompts[0].id
-		xPlayer.netPlayer.sendCmd('displayPrompt', xPlayer.prompts[0])
-	}
-	replaceContentTranslated(playDiv, "RoundBanner", {roundNum: round})
-}
-
-function perPPJudgement(pp) {
-	replaceContent(playDiv, playDiv => {
-		const topP = document.createElement('p')
-		topP.style['font-weight'] = 'bold'
-		if(QuiplibreConfig.resPackLang){
-			topP.setAttribute('lang', QuiplibreConfig.resPackLang)
-		}
-		topP.appendChild(document.createTextNode(pp.prompt.prompt))
-		playDiv.appendChild(topP)
-		
-		let aI = 0
-		let erstes = true
-		// pucgenie: microoptimization, enhances readability too
-		const _voteOr = textCache.voteOr
-		for (let i = 0; i < pp.players.length; ++i) {
-			let xPlayer = pp.players[i]
-			if (erstes) {
-				erstes = false
-			} else {
-				playDiv.appendChild(createLangTextNode('answer', _voteOr.text, _voteOr.lang))
-			}
-			const outAnswer = xPlayer.answers[roundLogic.getAnswerIndex(i)]
-			playDiv.appendChild(createLangTextNode('answer', outAnswer.answer, outAnswer.lang))
-		}
-	})
-}
-
-function renderChoices(choices){
-	if(!QuiplibreConfig.theResPack){
-return
-	}
-	try {
-		const pfad1 = `${QuiplibreConfig.theResPack}/${choices.prompt.id}`
-		lazyLoad(pfad1 + QuiplibreConfig.dataFileName, rText => {
-			// pucgenie: Announce the question text.
-			let questionRead = new Audio(pfad1 + '/' + JSON.parse(rText)['fields'].filter(feld => feld['n'] === "PromptAudio")[0]['v'] + ".mp3")
-			questionRead.addEventListener('ended', () => {
-				hintergrundmusik.pause()
-				let prevMsg = undefined
-				for(let xP of document.querySelectorAll('#playDiv .answer')) {
-					const msg = new SpeechSynthesisUtterance()
-					msg.text = xP.innerText
-					msg.lang = xP.getAttribute('lang')
-					if (!prevMsg) {
-						window.speechSynthesis.speak(msg)
-				continue
-					}
-					prevMsg.addEventListener('end', () => {
-						const sepMsg = new SpeechSynthesisUtterance()
-						Object.assign(sepMsg, textCache.voteOr)
-						sepMsg.addEventListener('end', () => window.speechSynthesis.speak(msg), {once: true})
-						window.speechSynthesis.speak(sepMsg)
-					})
-					prevMsg = msg
-				}
-				prevMsg.addEventListener('end', () => hintergrundmusik.play())
-			})
-			questionRead.play()
-		})
-	} catch (soundExc) {
-		console.log({"nonFatalException": soundExc})
-	}
-}
-
-function newGame(){
-	gameCtrlDiv.style['display'] = 'none'
-	replaceContentTranslated(prevDiv, "PreviousWinner", {Player: players[0]})
-	round = 0
-	allPlayers(p => {
-		p.score = 0
-		p.netPlayer.sendCmd('updateScore', 0)
-	})
-	// pucgenie: disabled exceptional line of code.
-	//nextRound()
-	// Now it is possible for players to leave and join before nextRound() is called (e.g. by tapping on a button).
-	buttonDiv.style['display'] = 'block'
-}
+server.on('playerconnect', QuiplibreContext.prototype.playerConnect.bind(quiplCtx))
 
 function allPlayers(pred){ //query all players or apply a fn to them
 	let ret = true
@@ -334,8 +343,4 @@ function allPlayers(pred){ //query all players or apply a fn to them
 		ret = (pred(xPlayer)) && ret //must avoid short-circuit eval
 	}
 	return ret
-}
-
-function sortPlayers(){//descending. In-place and returns arr
-	return players.sort((a, b) => (b.score - a.score))
 }

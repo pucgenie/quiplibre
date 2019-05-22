@@ -6,7 +6,6 @@
 	<!--<script type="text/javascript" src="QuiplashQuestion.json"></script>-->
 	<link rel="stylesheet" href="css/common.css"></link>
 	<link rel="stylesheet" href="css/game.css"></link>
-	<script type="text/javascript" src="scripts/Uebersetz.js"></script>
 	<script type="text/javascript" src="scripts/common.js"></script>
 	<!-- default -->
 	<script type="text/javascript" src="prompts.js"></script>
@@ -25,7 +24,7 @@
 Loading translations...
 </div>
 <div id="buttonDiv" style="display: none;">
-<button onClick="nextRound()" data-tlk="BtnStartGame"></button>
+<button onClick="quiplCtx.nextRound()" data-tlk="BtnStartGame"></button>
 </div>
 <div id="gameCtrlDiv" style="display: none;">
 	<button onclick="newGame()" data-tlk="NewGameSamePlayers"></button><br>

@@ -37,24 +37,24 @@ class AbstractPlayer {
 				// pucgenie: exceptional behaviour, thus not registered in syncCurrentStatus()
 				this.netPlayer.sendCmd('updateName', {name: this.name, color: this.color})
 				let xPlayer
-				if (gameBegun){
+				if (interfacingObj.gameBegun){
 					// pucgenie: the first player that reconnects using the name of a disconnected player "hijacks" that player's profile.
-					xPlayer = players.find(xPlayer => (!xPlayer.connected) && xPlayer.name === cmd.answer)
+					xPlayer = interfacingObj.players.find(xPlayer => (!xPlayer.connected) && xPlayer.name === cmd.answer)
 					if(!xPlayer){
 						this.displayMessage("CantJoinRunningGame")
 		throw `Ignored wrongly connecting player ${cmd.answer}`
 					}
 					// pucgenie: "this" changes. Event handlers are using arrow functions so we have to deregister the old ones and create new ones.
 					xPlayer.unregisterEventHandlers()
-					newPlayers.splice(newPlayers.indexOf(this), 1)
+					interfacingObj.newPlayers.splice(interfacingObj.newPlayers.indexOf(this), 1)
 					// pucgenie: retains old xPlayer's state so we can resynchronize
 					xPlayer.netPlayer = this.netPlayer
 					xPlayer.connected = true
 					xPlayer.registerEventHandlers()
 				} else {
 					xPlayer = this
-					newPlayers.splice(newPlayers.indexOf(this), 1)
-					players.push(this)
+					interfacingObj.newPlayers.splice(interfacingObj.newPlayers.indexOf(this), 1)
+					interfacingObj.players.push(this)
 					
 					this.stateStep("rest")
 					this.displayMessage("GetReady")
@@ -70,18 +70,18 @@ class AbstractPlayer {
 		}
 		
 		this.evtDisconnect = () => {
-			let ndx = newPlayers.indexOf(this)
+			let ndx = interfacingObj.newPlayers.indexOf(this)
 			if (ndx >= 0){
-				newPlayers.splice(ndx, 1)
+				interfacingObj.newPlayers.splice(ndx, 1)
 		return
 			}
-			ndx = players.indexOf(this)
+			ndx = interfacingObj.players.indexOf(this)
 			if (ndx >= 0) {
-				if(gameBegun){
+				if(interfacingObj.gameBegun){
 					// pucgenie: keep player for reconnect
 					this.connected = false
 				} else {
-					players.splice(ndx, 1)
+					interfacingObj.players.splice(ndx, 1)
 				}
 			} else {
 				console.log({"notfound": this})
@@ -126,7 +126,7 @@ class AbstractPlayer {
 			}
 			// pucgenie: FIXME: refactor, move to QuiplibrePlayer
 			interfacingObj.roundLogic.pp.votes[cmd.index].push(this)
-			if (round != maxRounds || ++this.voteCountR3 == maxRounds) {
+			if (interfacingObj.round != interfacingObj.maxRounds || ++this.voteCountR3 == maxRounds) {
 				// WastedSpark(tm)
 				this.voteCountR3 = 0
 				this.stateStep('rest')
@@ -135,9 +135,9 @@ class AbstractPlayer {
 				for(let voteN of interfacingObj.roundLogic.pp.votes) {
 					stimmenSumme += voteN.length
 				}
-				let voteFactor = round == maxRounds ? maxRounds : 1
-				if(stimmenSumme >= players.length * voteFactor){
-					if (stimmenSumme > players.length * voteFactor) {
+				let voteFactor = interfacingObj.round == interfacingObj.maxRounds ? interfacingObj.maxRounds : 1
+				if(stimmenSumme >= interfacingObj.players.length * voteFactor){
+					if (stimmenSumme > interfacingObj.players.length * voteFactor) {
 						console.log("There are more votes than players!")
 					}
 					
