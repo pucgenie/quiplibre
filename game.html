@@ -6,13 +6,15 @@
 	<!--<script type="text/javascript" src="QuiplashQuestion.json"></script>-->
 	<link rel="stylesheet" href="css/common.css"></link>
 	<link rel="stylesheet" href="css/game.css"></link>
-	<script type="text/javascript" src="scripts/lazyLoad.js"></script>
 	<script type="text/javascript" src="scripts/Uebersetz.js"></script>
 	<script type="text/javascript" src="scripts/common.js"></script>
 	<!-- default -->
 	<script type="text/javascript" src="prompts.js"></script>
 	<!-- enhanced -->
-	<script type="text/javascript" src="secrets/settings.js"></script>
+	<script type="text/javascript" src="secrets/QuiplibreConfig.js"></script>
+	
+	<script type="text/javascript" src="scripts/AbstractPlayer.js"></script>
+	<script type="text/javascript" src="scripts/RoundLogics.js"></script>
 	<script type="text/javascript" src="scripts/game.js"></script>
 </head>
 <body>
@@ -22,8 +24,8 @@
 <div id="playDiv" data-tlk="WelcomeBanner">
 Loading translations...
 </div>
-<div id="buttonDiv">
-<button id="startButton" onClick="nextRound()" data-tlk="BtnStartGame" style="display: none;"></button>
+<div id="buttonDiv" style="display: none;">
+<button onClick="nextRound()" data-tlk="BtnStartGame"></button>
 </div>
 <div id="gameCtrlDiv" style="display: none;">
 	<button onclick="newGame()" data-tlk="NewGameSamePlayers"></button><br>

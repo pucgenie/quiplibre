@@ -1,5 +1,9 @@
 "use strict";
 
+const textCache = {
+	voteOr: {text: undefined, lang: undefined}
+}
+
 const uebersetz = new Uebersetz('game_messages', uebersetz => {
 	window.__ = (key, basis, func, joined) => uebersetz.__(uebersetz.languages, key, basis, func, joined)
 	if (document.readyState !== 'complete' && document.readyState !== 'interactive') {
@@ -7,27 +11,34 @@ const uebersetz = new Uebersetz('game_messages', uebersetz => {
 	} else {
 		nachDemLaden()
 	}
+	// pucgenie: cache some texts
+	const voarr = []
+	textCache.voteOr.lang = __("VoteOr", undefined, Array.prototype.push.bind(voarr))
+	textCache.voteOr.text = voarr.join('')
 })
 
+/**
+ * pucgenie: This function is to be called when document is ready and translation files have been loaded.
+**/
 function nachDemLaden() {
 	document.querySelectorAll('[data-tlk]').forEach(elem => {
 		replaceContentTranslated(elem, elem.getAttribute('data-tlk'))
 		//elem.removeAttribute('data-tlk')
 	})
-	if(window.secretHintergrundmusik){
-		hintergrundmusik.setAttribute('src', window.secretHintergrundmusik)
-		const fortsetzer = evt => {
-			hintergrundmusik.play()
-		}
+	const fortsetzer = evt => {
+		hintergrundmusik.play()
+	}
+	if(QuiplibreConfig.secretHintergrundmusik){
+		hintergrundmusik.setAttribute('src', QuiplibreConfig.secretHintergrundmusik)
 		fortsetzer()
-		if(window.secretTitelvideo){
-			titelvideo.setAttribute('src', window.secretTitelvideo)
-			titelvideo.addEventListener('play', evt => {
-				hintergrundmusik.pause()
-			})
-			titelvideo.addEventListener('pause', fortsetzer)
-			titelvideo.addEventListener('ended', fortsetzer)
-		}
+	}
+	if(QuiplibreConfig.secretTitelvideo){
+		titelvideo.setAttribute('src', QuiplibreConfig.secretTitelvideo)
+		titelvideo.addEventListener('play', evt => {
+			hintergrundmusik.pause()
+		})
+		titelvideo.addEventListener('pause', fortsetzer)
+		titelvideo.addEventListener('ended', fortsetzer)
 	}
 }
 
@@ -65,294 +76,6 @@ function hslToRgb(h, s, l){
 	return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)]
 }
 
-function renderTotalPlayersText(playDiv) {
-	__("TotalPlayers", {totalPlayerCount: players.length}, satz => playDiv.appendChild(textToNode(satz)))
-}
-
-class AbstractPlayer {
-	constructor(xnetPlayer, name) {
-		// pucgenie: never ever cache netplayer anywhere else. It may change during one game round.
-		this.netPlayer = xnetPlayer
-		this.name = name
-		this.state = 'nameless'
-		this.previousState = undefined
-		this.prompts = []
-		this.promptId = 0
-		this.answers = []
-		this.score = 0
-		this.userLang = ["en"]
-		this.voteCountR3 = 0
-		this.connected = true
-		
-		let hslArr = hslToRgb(Math.random(), Math.random() * 0.5 + 0.5, 0.5)
-		// pucgenie: cut-off negative channel values
-		for(let i = hslArr.length; i --> 0; ) {
-			if (hslArr[i] < 0) {
-				console.log('color generator flaw')
-				hslArr[i] = 0
-			}
-		}
-		hslArr = (hslArr[0] << 16) | (hslArr[1] << 8) | hslArr[2]
-		this.color = '#' + hslArr.toString(16).padStart(6, '0')
-		
-		this.stateMap = {
-			'rest': cmd => this.displayMessage("RestStateSoNoAction"),
-			'nameless': cmd => {
-				if (cmd.promptId != 0) {
-					this.displayMessage("NamelessUnexpectedPrompt", {promptId: cmd.promptId})
-		throw `Ignored player ${cmd.answer}`
-				}
-				this.name = cmd.answer
-				this.color = cmd.color
-				// pucgenie: exceptional behaviour, thus not registered in syncCurrentStatus()
-				this.netPlayer.sendCmd('updateName', {name: this.name, color: this.color})
-				let xPlayer
-				if (gameBegun){
-					// pucgenie: the first player that reconnects using the name of a disconnected player "hijacks" that player's profile.
-					xPlayer = players.find(xPlayer => (!xPlayer.connected) && xPlayer.name === cmd.answer)
-					if(!xPlayer){
-						this.displayMessage("CantJoinRunningGame")
-		throw `Ignored wrongly connecting player ${cmd.answer}`
-					}
-					// pucgenie: "this" changes. Event handlers are using arrow functions so we have to deregister the old ones and create new ones.
-					xPlayer.unregisterEventHandlers()
-					newPlayers.splice(newPlayers.indexOf(this), 1)
-					// pucgenie: retains old xPlayer's state so we can resynchronize
-					xPlayer.netPlayer = this.netPlayer
-					xPlayer.connected = true
-					xPlayer.registerEventHandlers()
-				} else {
-					xPlayer = this
-					newPlayers.splice(newPlayers.indexOf(this), 1)
-					players.push(this)
-					
-					this.stateStep("rest")
-					this.displayMessage("GetReady")
-					replaceContent(playDiv, playDiv => {
-						__("LastPlayerJoined", undefined, satz => playDiv.appendChild(textToNode(satz)))
-						const xB = document.createElement('b')
-						xB.appendChild(document.createTextNode(cmd.answer))
-						xB.style['color'] = this.color
-						playDiv.appendChild(xB)
-						playDiv.appendChild(document.createElement('br'))
-						renderTotalPlayersText(playDiv)
-					})
-				}
-			}
-		}
-		
-		this.syncMap = {
-			'nameless': () => {
-				this.netPlayer.sendCmd('updateScore', this.score)
-			}
-		}
-		
-		this.evtDisconnect = () => {
-			let ndx = newPlayers.indexOf(this)
-			if (ndx >= 0){
-				newPlayers.splice(ndx, 1)
-		return
-			}
-			ndx = players.indexOf(this)
-			if (ndx >= 0) {
-				if(gameBegun){
-					// pucgenie: keep player for reconnect
-					this.connected = false
-				} else {
-					players.splice(ndx, 1)
-				}
-			} else {
-				console.log({"notfound": this})
-			}
-			clearElementChilds(playDiv)
-			renderTotalPlayersText(playDiv)
-		}
-		
-		this.evtReceiveAnswer = cmd => {
-			//the idea is to check if the response is to the right question
-			//to prevent errors
-			//console.log(this);
-			//console.log({"promptId":cmd.promptId, "answer":cmd.answer});
-			if(cmd.answer==""){
-				this.displayMessage("ignoringEmptyCmdAnswer")
-		return
-			}
-			const xFn = this.stateMap[this.state]
-			if(!xFn){
-				console.log({"playerName": this.name, "unexpectedState": this.state, "previousState": this.previousState})
-		return
-			}
-			try {
-				xFn(cmd)
-			} catch (e) {
-				// pucgenie: check if it really is 'WrongQuestion' etc.
-				console.log(e)
-			}
-			this.syncCurrentStatus()
-		}
-		
-		this.evtReceiveChoice = cmd => {
-			//console.log(cmd)
-			//console.log(this)
-			if(cmd.promptId != this.promptId){//remember, == does not work on arrays
-				console.log({"error": "ignoring choice as it's between incorrect options", "remotePromptId": cmd.promptId, "expectedPromptId": this.promptId})
-				return
-			}
-			if(this.state !== 'choosing'){
-				console.log("ignoring choice as player state is "+this.state)
-				this.displayMessage("SuspectHacker")
-		return
-			}
-			roundLogic.votes[cmd.index].push(this)
-			if (round != maxRounds || ++this.voteCountR3 == maxRounds) {
-				// WastedSpark(tm)
-				this.voteCountR3 = 0
-				this.stateStep('rest')
-				this.displayMessage("YouVotedFor", {voteNumber: cmd.index+1})
-				let stimmenSumme = 0
-				for(let voteN of roundLogic.votes) {
-					stimmenSumme += voteN.length
-				}
-				let voteFactor = round == maxRounds ? maxRounds : 1
-				if(stimmenSumme >= players.length * voteFactor){
-					if (stimmenSumme > players.length * voteFactor) {
-						console.log("There are more votes than players!")
-					}
-					attrDiv.style['display'] = 'none'
-					replaceContent(prevDiv, prevDiv => {
-						__("PreviousResults", undefined, satz => prevDiv.appendChild(textToNode(satz)))
-						
-						roundLogic.awardPoints((xPlayer, xVotes) => {
-							let xPDe = document.createElement('p')
-							__("wonVotesPoints", {"Player": xPlayer, "Votes": xVotes}, xNeu => xPDe.appendChild(textToNode(xNeu)))
-							prevDiv.appendChild(xPDe)
-						})
-						
-						prevDiv.appendChild(document.createElement('br'))
-					})
-					progressJudgement()
-				}
-			}
-		}
-		
-		this.registerEventHandlers()
-	}
-	stateStep(nextState){
-		this.previousState = this.state
-		this.state = nextState
-	}
-	registerEventHandlers(){
-		this.netPlayer.addEventListener('disconnect', this.evtDisconnect)
-		this.netPlayer.addEventListener('receiveAnswer', this.evtReceiveAnswer)
-		this.netPlayer.addEventListener('receiveChoice', this.evtReceiveChoice)
-		
-		this.netPlayer.addEventListener('userLang', cmd => {
-			//console.log(cmd)
-			this.userLang = cmd
-			this.netPlayer.sendCmd('displayPrompt', {id: 0, prompt: undefined, lang: undefined, color: this.color, resPack: window.theResPack})
-		}, {once: true})
-	}
-	unregisterEventHandlers(){
-		if(!this.evtDisconnect){
-			throw "Invalid state: no listeners registered before!"
-		}
-		this.netPlayer.removeEventListener('disconnect', this.evtDisconnect)
-		this.netPlayer.removeEventListener('receiveAnswer', this.evtReceiveAnswer)
-		this.netPlayer.removeEventListener('receiveChoice', this.evtReceiveChoice)
-	}
-	syncCurrentStatus(){
-		const xFn2 = this.syncMap[this.previousState]
-		if(xFn2){
-			xFn2()
-		} else {
-			console.log(`No syncMap entry for previousState: ${this.previousState}`)
-		}
-	}
-	/**
-	 * A wrapper for sendCmd('displayMessage', ...) without obvious reflection semantics etc..
-	**/
-	displayMessage(template, params){
-		this.netPlayer.sendCmd('displayMessage', {template: template, params: params})
-	}
-}
-AbstractPlayer.prototype.toString = function(){return this.name}
-
-/**
- * Player events related to Quiplibre Textmode
-**/
-class QuiplibrePlayer extends AbstractPlayer {
-	constructor(xnetPlayer, name){
-		super(xnetPlayer, name)
-		this.stateMap['prompt0'] = cmd => {
-			if (cmd.promptId != this.promptId){
-				this.displayMessage("WrongQuestion", {prompt: this.promptId, remotePrompt: cmd.promptId})
-			}
-			this.stateStep('prompt1')
-			this.answers.push(cmd)
-			this.promptId = this.prompts[1].id
-		}
-		this.syncMap['prompt0'] = () => this.netPlayer.sendCmd('displayPrompt', this.prompts[1])
-		this.stateMap['prompt1'] = cmd => {
-			if (cmd.promptId != this.promptId){
-				this.displayMessage("WrongQuestion", {prompt: this.promptId, remotePrompt: cmd.promptId})
-			throw "WrongQuestion"
-			}
-			this.stateStep('rest')
-			this.answers.push(cmd.answer)
-		}
-		this.syncMap['prompt1'] = () => {
-			this.displayMessage("PleaseWaitForOtherAnswers")
-			if(roundLogic.allPlayersHaveAnswered()){
-				progressJudgement()
-			}
-		}
-	}
-}
-
-class AbstractRound {
-	constructor() {
-		this.votes = undefined
-		this.pp = undefined
-		this.playerPairs = []
-	}
-	static pullPrompt(){
-		if (window.prompts.length == 0){
-			return {prompt: "What's a good prompt for a round of Quiplibre?"+
-				" (Please send us the winning answer of this round, "+
-				"as you have exhausted our list of prompts)", id: 1}
-		}
-		return window.prompts.splice(Math.floor(Math.random()*window.prompts.length), 1)[0]
-	}
-	progressJudgement(showVotingOptions_pp, func_choices){
-		this.progressJudgement1()
-		if (this.playerPairs.length == 0){
-			nextRound()
-	return
-		}
-		this.pp = this.playerPairs.splice(Math.floor(Math.random()*this.playerPairs.length), 1)[0]
-		showVotingOptions_pp(this.pp)
-		const choices = {
-			"possibilities": this.getAllAnswers(),
-			"prompt": this.pp.prompt
-		}
-		allPlayers(p => {
-			p.netPlayer.sendCmd("displayChoice", choices)
-			p.stateStep("choosing")
-			p.promptId = choices.prompt.id
-		})
-		func_choices(choices)
-	}
-	awardPoints(perPlayer){
-		for(let i = 0; i < this.votes.length; ++i){
-			let xPlayer = this.pp.players[i]
-			let xVotes = this.votes[i]
-			xPlayer.score += xVotes.length * round
-			xPlayer.netPlayer.sendCmd('updateScore', xPlayer.score)
-			perPlayer(xPlayer, xVotes)
-		}
-	}
-}
-
 /**
  * Shuffles array in place.
  * https://stackoverflow.com/a/6274381
@@ -370,72 +93,74 @@ function shuffle(a) {
     return a
 }
 
-class Round_1_2 extends AbstractRound {
-	nextRound1() {
-		// pucgenie: parallelizable, if ECMAScript would support it - but pullPrompt would be the bottleneck, I think
-		players.forEach(p => {
-			p.prompts = [AbstractRound.pullPrompt(), undefined]
-			p.answers = new Array(2) //optimization+readability
-			this.playerPairs.push({players: [p, undefined], prompt: p.prompts[0]})
-		})
-		// pucgenie: shuffle players so that the matchmaking is less complex
-		
-		//use slice to copy array values, not a reference:
-		const randomPlayers = players.slice()
-		this.playerPairs.forEach(xPp => {
-			let xRP = Math.floor(Math.random() * (randomPlayers.length-1))
-			if(randomPlayers[xRP] === xPp.players[0]){
-				// pucgenie: cheap, isn't it?
-				++xRP
-			}
-			let xP = randomPlayers[xRP]
-			if(this.playerPairs.filter(pp => pp.players[0] === xP && pp.players[1] === xPp.players[0]).length == 1){
-				// pucgenie: find another player for this pair...
-			}
-			//console.log(randomPlayers.map(p => p.name), xRP, this.playerPairs)
-			randomPlayers.splice(xRP, 1)[0]
-			xP.prompts[1] = xPp.prompt
-			xPp.players[1] = xP
-			// pucgenie: already set in first loop
-			//xPp.players[0].prompts[0] = xPp.prompt
-		})
-	}
-	progressJudgement1() {
-		this.votes = [[],[]]
-	}
-	getAllAnswers() {
-		return [this.pp.players[0].answers[0], this.pp.players[1].answers[1]]
-	}
-	allPlayersHaveAnswered(){
-		return allPlayers(p => p.answers.length==2)
-	}
+function renderTotalPlayersText() {
+	__("TotalPlayers", {totalPlayerCount: players.length}, satz => playDiv.appendChild(textToNode(satz)))
 }
 
-class Round_3 extends AbstractRound {
-	nextRound1() {
-		const xPrompts = [AbstractRound.pullPrompt()]
-		let ppair = {players: players, prompt: xPrompts[0]}
-		this.playerPairs.push(ppair)
-		for (let xPlayer of players) { //todo: could refactor this to use allPlayers
-			xPlayer.prompts = xPrompts
-			xPlayer.answers = new Array(1)
-		}
+function renderNewestPlayer(xPlayer) {
+	replaceContent(playDiv, playDiv => {
+		__("LastPlayerJoined", undefined, satz => playDiv.appendChild(textToNode(satz)))
+		const xB = document.createElement('b')
+		xB.appendChild(document.createTextNode(xPlayer.name))
+		xB.style['color'] = xPlayer.color
+		playDiv.appendChild(xB)
+		playDiv.appendChild(document.createElement('br'))
+		renderTotalPlayersText()
+	})
+}
+
+function renderPreviousResults() {
+	attrDiv.style['display'] = 'none'
+	replaceContent(prevDiv, prevDiv => {
+		__("PreviousResults", undefined, satz => prevDiv.appendChild(textToNode(satz)))
+		
+		roundLogic.awardPoints((xPlayer, xVotes) => {
+			let xPDe = document.createElement('p')
+			__("wonVotesPoints", {"Player": xPlayer, "Votes": xVotes}, xNeu => xPDe.appendChild(textToNode(xNeu)))
+			prevDiv.appendChild(xPDe)
+		})
+		
+		prevDiv.appendChild(document.createElement('br'))
+	})
+}
+
+function pullPrompt(){
+	if (window.prompts.length == 0){
+return {prompt: "What's a good prompt for a round of Quiplibre? (Please send us the winning answer of this round, as you have exhausted our list of prompts)", id: 1}
 	}
-	progressJudgement1() {
-		this.votes = new Array(players.length)
-		for(let i = players.length; i --> 0; ) {
-			this.votes[i] = []
+	return window.prompts.splice(Math.floor(Math.random()*window.prompts.length), 1)[0]
+}
+
+/**
+ * Player events related to Quiplibre Textmode
+**/
+class QuiplibrePlayer extends AbstractPlayer {
+	constructor(xnetPlayer, name, interfacingObj){
+		super(xnetPlayer, name, interfacingObj)
+		this.prompts = []
+		this.stateMap['prompt0'] = cmd => {
+			if (cmd.promptId != this.promptId){
+				this.displayMessage("WrongQuestion", {prompt: this.promptId, remotePrompt: cmd.promptId})
+			}
+			this.stateStep('prompt1')
+			this.answers.push(cmd.answer)
+			this.promptId = this.prompts[1].id
 		}
-	}
-	getAllAnswers() {
-		let ret = new Array(this.pp.players.length)
-		for(let xPlayer of this.pp.players) {
-			ret.push(xPlayer.answers[0])
+		this.syncMap['prompt0'] = () => this.netPlayer.sendCmd('displayPrompt', this.prompts[1])
+		this.stateMap['prompt1'] = cmd => {
+			if (cmd.promptId != this.promptId){
+				this.displayMessage("WrongQuestion", {prompt: this.promptId, remotePrompt: cmd.promptId})
+			throw "WrongQuestion"
+			}
+			this.stateStep('rest')
+			this.answers.push(cmd.answer)
 		}
-		return ret
-	}
-	allPlayersHaveAnswered(){
-		return allPlayers(p => p.answers.length==1)
+		this.syncMap['prompt1'] = () => {
+			this.displayMessage("PleaseWaitForOtherAnswers")
+			if(interfacingObj.roundLogic.allPlayersHaveAnswered()){
+				interfacingObj.roundLogic.progressJudgement()
+			}
+		}
 	}
 }
 
@@ -445,8 +170,8 @@ const server = new happyfuntimes.GameServer()
 
 const maxRounds = 3 //a nice number of rounds
 
-if(window.theResPack){
-	lazyLoad(`${window.theResPack}.jet`, rText => {
+if(QuiplibreConfig.theResPack){
+	lazyLoad(`${QuiplibreConfig.theResPack}.${QuiplibreConfig.dataFileExtension}`, rText => {
 		window.prompts = JSON.parse(rText)['content']
 		/*
 		// temporary converter
@@ -525,87 +250,68 @@ return
 	replaceContentTranslated(playDiv, "RoundBanner", {roundNum: round})
 }
 
-function progressJudgement(){
-	let voteOr = []
-	__("VoteOr", undefined, Array.prototype.push.bind(voteOr))
-	voteOr = voteOr.join('')
-	
-	roundLogic.progressJudgement(pp => replaceContent(playDiv, playDiv => {
+function perPPJudgement(pp) {
+	replaceContent(playDiv, playDiv => {
 		const topP = document.createElement('p')
-		topP.style['font-weight'] = "bold"
-		if(window.resPackLang){
-			topP.setAttribute('lang', window.resPackLang)
+		topP.style['font-weight'] = 'bold'
+		if(QuiplibreConfig.resPackLang){
+			topP.setAttribute('lang', QuiplibreConfig.resPackLang)
 		}
 		topP.appendChild(document.createTextNode(pp.prompt.prompt))
 		playDiv.appendChild(topP)
 		
 		let aI = 0
 		let erstes = true
-		for(let xPlayer of pp.players) {
+		// pucgenie: microoptimization, enhances readability too
+		const _voteOr = textCache.voteOr
+		for (let i = 0; i < pp.players.length; ++i) {
+			let xPlayer = pp.players[i]
 			if (erstes) {
 				erstes = false
 			} else {
-				const xNode = document.createElement('p')
-				xNode.classList.add('answer')
-				xNode.setAttribute('lang', uebersetz.languages)
-				xNode.appendChild(textToNode(voteOr))
-				playDiv.appendChild(xNode)
+				playDiv.appendChild(createLangTextNode('answer', _voteOr.text, _voteOr.lang))
 			}
-			const outAnswer = xPlayer.answers[aI]
-			{
-				const xPAnswer = document.createElement('p')
-				xPAnswer.classList.add('answer')
-				xPAnswer.setAttribute('lang', outAnswer.lang)
-				xPAnswer.appendChild(document.createTextNode(outAnswer.answer))
-				playDiv.appendChild(xPAnswer)
-			}
-			if (round != maxRounds) {
-				// pucgenie: how to refactor
-				aI ^= 1
-			}
-		}
-	}), choices => {
-		if(!window.theResPack){
-	return
-		}
-		try {
-			const pfad1 = `${window.theResPack}/${choices.prompt.id}`
-			lazyLoad(pfad1 + '/data.jet', rText => {
-				// pucgenie: Announce the question text.
-				let questionRead = new Audio(pfad1 + "/" + JSON.parse(rText)['fields'].filter(feld => feld['n'] == "PromptAudio")[0]['v'] + ".mp3")
-				questionRead.addEventListener('ended', () => {
-					const sepMsgT = {lang: undefined, text: undefined}
-					{
-						const ausG = []
-						sepMsgT.lang = __('VoteOr', undefined, xTxt2 => ausG.push(xTxt2))
-						sepMsgT.text = ausG.join('')
-					}
-					hintergrundmusik.pause()
-					let prevMsg = undefined
-					for(let xP of document.querySelectorAll('#playDiv .answer')) {
-						const msg = new SpeechSynthesisUtterance()
-						msg.text = xP.innerText
-						msg.lang = xP.getAttribute('lang')
-						if (!prevMsg) {
-							window.speechSynthesis.speak(msg)
-					continue
-						}
-						prevMsg.addEventListener('end', () => {
-							const sepMsg = new SpeechSynthesisUtterance()
-							Object.assign(sepMsg, sepMsgT)
-							sepMsg.addEventListener('end', () => window.speechSynthesis.speak(msg), {once: true})
-							window.speechSynthesis.speak(sepMsg)
-						})
-						prevMsg = msg
-					}
-					prevMsg.addEventListener('end', () => hintergrundmusik.play())
-				})
-				questionRead.play()
-			})
-		} catch (soundExc) {
-			console.log({"nonFatalException": soundExc})
+			const outAnswer = xPlayer.answers[roundLogic.getAnswerIndex(i)]
+			playDiv.appendChild(createLangTextNode('answer', outAnswer.answer, outAnswer.lang))
 		}
 	})
+}
+
+function renderChoices(choices){
+	if(!QuiplibreConfig.theResPack){
+return
+	}
+	try {
+		const pfad1 = `${QuiplibreConfig.theResPack}/${choices.prompt.id}`
+		lazyLoad(pfad1 + QuiplibreConfig.dataFileName, rText => {
+			// pucgenie: Announce the question text.
+			let questionRead = new Audio(pfad1 + '/' + JSON.parse(rText)['fields'].filter(feld => feld['n'] === "PromptAudio")[0]['v'] + ".mp3")
+			questionRead.addEventListener('ended', () => {
+				hintergrundmusik.pause()
+				let prevMsg = undefined
+				for(let xP of document.querySelectorAll('#playDiv .answer')) {
+					const msg = new SpeechSynthesisUtterance()
+					msg.text = xP.innerText
+					msg.lang = xP.getAttribute('lang')
+					if (!prevMsg) {
+						window.speechSynthesis.speak(msg)
+				continue
+					}
+					prevMsg.addEventListener('end', () => {
+						const sepMsg = new SpeechSynthesisUtterance()
+						Object.assign(sepMsg, textCache.voteOr)
+						sepMsg.addEventListener('end', () => window.speechSynthesis.speak(msg), {once: true})
+						window.speechSynthesis.speak(sepMsg)
+					})
+					prevMsg = msg
+				}
+				prevMsg.addEventListener('end', () => hintergrundmusik.play())
+			})
+			questionRead.play()
+		})
+	} catch (soundExc) {
+		console.log({"nonFatalException": soundExc})
+	}
 }
 
 function newGame(){
@@ -621,9 +327,6 @@ function newGame(){
 	// Now it is possible for players to leave and join before nextRound() is called (e.g. by tapping on a button).
 	buttonDiv.style['display'] = 'block'
 }
-
-//helper & utility fns
-function display(html){playDiv.innerHTML = html}
 
 function allPlayers(pred){ //query all players or apply a fn to them
 	let ret = true
