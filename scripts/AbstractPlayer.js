@@ -56,7 +56,7 @@ class AbstractPlayer {
 					interfacingObj.newPlayers.splice(interfacingObj.newPlayers.indexOf(this), 1)
 					interfacingObj.players.push(this)
 					
-					this.stateStep("rest")
+					this.stateStep('rest')
 					this.displayMessage("GetReady")
 					interfacingObj.renderNewestPlayer(this)
 				}

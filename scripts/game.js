@@ -112,7 +112,7 @@ class QuiplibrePlayer extends AbstractPlayer {
 				this.displayMessage("WrongQuestion", {prompt: this.promptId, remotePrompt: cmd.promptId})
 			}
 			this.stateStep('prompt1')
-			this.answers.push(cmd.answer)
+			this.answers.push(cmd)
 			this.promptId = this.prompts[1].id
 		}
 		this.syncMap['prompt0'] = () => this.netPlayer.sendCmd('displayPrompt', this.prompts[1])
@@ -122,11 +122,12 @@ class QuiplibrePlayer extends AbstractPlayer {
 			throw "WrongQuestion"
 			}
 			this.stateStep('rest')
-			this.answers.push(cmd.answer)
+			this.answers.push(cmd)
 		}
 		this.syncMap['prompt1'] = () => {
 			this.displayMessage("PleaseWaitForOtherAnswers")
 			if(interfacingObj.roundLogic.allPlayersHaveAnswered()){
+				console.log("all players answered.")
 				interfacingObj.roundLogic.progressJudgement()
 			}
 		}
@@ -136,8 +137,6 @@ class QuiplibrePlayer extends AbstractPlayer {
 const happyfuntimes = require('happyfuntimes')
 
 const server = new happyfuntimes.GameServer()
-
-const maxRounds = 3 //a nice number of rounds
 
 if(QuiplibreConfig.theResPack){
 	lazyLoad(`${QuiplibreConfig.theResPack}.${QuiplibreConfig.dataFileExtension}`, rText => {
@@ -157,20 +156,21 @@ class QuiplibreContext {
 	constructor(){
 		this.gameBegun  = false
 		this.players    = []
-		this.newPlayers = new Array(3)
+		this.newPlayers = []//new Array(3)
 		this.round      = 0
 		this.roundLogic = undefined
+		this.maxRounds  = 3 //a nice number of rounds
 	}
 	renderTotalPlayersText() {
 		__("TotalPlayers", {totalPlayerCount: this.players.length}, satz => playDiv.appendChild(textToNode(satz)))
 	}
 	renderPreviousResults() {
-		attrDiv.style['display'] = 'none'
+		attrDiv.style['visibility'] = 'hidden'
 		replaceContent(prevDiv, prevDiv => {
 			__("PreviousResults", undefined, satz => prevDiv.appendChild(textToNode(satz)))
 			
 			this.roundLogic.awardPoints((xPlayer, xVotes) => {
-				let xPDe = document.createElement('p')
+				const xPDe = document.createElement('p')
 				__("wonVotesPoints", {"Player": xPlayer, "Votes": xVotes}, xNeu => xPDe.appendChild(textToNode(xNeu)))
 				prevDiv.appendChild(xPDe)
 			})
@@ -189,7 +189,7 @@ class QuiplibreContext {
 			this.renderTotalPlayersText()
 		})
 		if(this.players.length >= 2){
-			buttonDiv.style['display'] = 'block'
+			btnNextRound.removeAttribute('disabled')
 		}
 	}
 	nextRound(){
@@ -197,9 +197,10 @@ class QuiplibreContext {
 			replaceContentTranslated(playDiv, "NeedMorePlayers")
 	return
 		}
-		buttonDiv.style['display']  = 'none'
+		btnNextRound.style['display']  = 'none'
 		titelvideo.pause()
 		titelvideo.style['display'] = 'none'
+		attrDiv.style['visibility'] = 'hidden'
 		//clearElementChilds(playDiv)
 		this.gameBegun = true
 		if (++this.round > this.maxRounds){
@@ -222,7 +223,7 @@ class QuiplibreContext {
 				playDiv.appendChild(xTable)
 			})
 			gameCtrlDiv.style['display'] = 'block'
-			attrDiv.style['display']     = 'block'
+			attrDiv.style['visibility']  = 'visible'
 			titelvideo.style['display']  = 'block'
 			this.players.forEach(xPlayer => xPlayer.displayMessage("GameEnded"))
 			// pucgenie: allows new players to join
@@ -231,14 +232,9 @@ class QuiplibreContext {
 			this.roundLogic = undefined
 	return
 		}
-		this.roundLogic = round < maxRounds ? new Round_1_2(this) : new Round_3(this)
-		this.roundLogic.nextRound1()
-		for (let xPlayer of players) {
-			xPlayer.stateStep(round == this.maxRounds ? 'prompt1' : 'prompt0')
-			xPlayer.promptId = xPlayer.prompts[0].id
-			xPlayer.netPlayer.sendCmd('displayPrompt', xPlayer.prompts[0])
-		}
-		replaceContentTranslated(playDiv, "RoundBanner", {roundNum: round})
+		this.roundLogic = this.round < this.maxRounds ? new Round_1_2(this) : new Round_3(this)
+		this.roundLogic.nextRound()
+		replaceContentTranslated(playDiv, "RoundBanner", {roundNum: this.round})
 	}
 	perPPJudgement(pp) {
 		replaceContent(playDiv, playDiv => {
@@ -254,8 +250,8 @@ class QuiplibreContext {
 			let erstes = true
 			// pucgenie: microoptimization, enhances readability too
 			const _voteOr = textCache.voteOr
-			for (let i = 0; i < this.pp.players.length; ++i) {
-				let xPlayer = this.pp.players[i]
+			for (let i = 0; i < pp.players.length; ++i) {
+				let xPlayer = pp.players[i]
 				if (erstes) {
 					erstes = false
 				} else {
@@ -274,7 +270,8 @@ class QuiplibreContext {
 			const pfad1 = `${QuiplibreConfig.theResPack}/${choices.prompt.id}`
 			lazyLoad(pfad1 + QuiplibreConfig.dataFileName, rText => {
 				// pucgenie: Announce the question text.
-				let questionRead = new Audio(pfad1 + '/' + JSON.parse(rText)['fields'].filter(feld => feld['n'] === "PromptAudio")[0]['v'] + ".mp3")
+				// pucgenie: TESTME: do expressions work in backtick syntax?
+				const questionRead = new Audio(`${pfad1}/${JSON.parse(rText)['fields'].filter(feld => feld['n'] === "PromptAudio")[0]['v']}.mp3`)
 				questionRead.addEventListener('ended', () => {
 					hintergrundmusik.pause()
 					let prevMsg = undefined
@@ -304,16 +301,18 @@ class QuiplibreContext {
 	}
 	newGame(){
 		gameCtrlDiv.style['display'] = 'none'
-		replaceContentTranslated(prevDiv, "PreviousWinner", {Player: players[0]})
+		replaceContentTranslated(prevDiv, "PreviousWinner", {Player: this.players[0]})
 		this.round = 0
-		allPlayers(p => {
+		// pucgenie: FIXME: move to RoundLogics
+		this.allPlayers(p => {
 			p.score = 0
+			// pucgenie: FIXME: use syncCurrentStatus ?
 			p.netPlayer.sendCmd('updateScore', 0)
 		})
 		// pucgenie: disabled exceptional line of code.
 		//nextRound()
 		// Now it is possible for players to leave and join before nextRound() is called (e.g. by tapping on a button).
-		buttonDiv.style['display'] = 'block'
+		btnNextRound.style['display'] = 'block'
 	}
 	sortPlayers(){//descending. In-place and returns arr
 		return this.players.sort((a, b) => (b.score - a.score))
@@ -324,6 +323,16 @@ class QuiplibreContext {
 		const tmpPlayerName = []
 		__("Player", {playerNum: this.players.length+1}, Array.prototype.push.bind(tmpPlayerName))
 		this.newPlayers.push(new QuiplibrePlayer(netPlayer, tmpPlayerName.join(''), this))
+	}
+	/**
+	 * query all players or apply a fn to them
+	**/
+	allPlayers(pred){
+		let ret = true
+		for (let xPlayer of this.players) {
+			ret = (pred(xPlayer)) && ret //must avoid short-circuit eval
+		}
+		return ret
 	}
 }
 
@@ -336,11 +345,3 @@ window.quiplCtx = new QuiplibreContext()
  * A new player has arrived.
 **/
 server.on('playerconnect', QuiplibreContext.prototype.playerConnect.bind(quiplCtx))
-
-function allPlayers(pred){ //query all players or apply a fn to them
-	let ret = true
-	for (let xPlayer of players) {
-		ret = (pred(xPlayer)) && ret //must avoid short-circuit eval
-	}
-	return ret
-}

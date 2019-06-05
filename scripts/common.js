@@ -140,7 +140,7 @@ function createLangTextNode(cssClass, text, lang) {
  * Clears xDiv and calls func(xDiv), which should add elements to xDiv ("display something").
 **/
 function replaceContent(xDiv, func){
-	// pucgenie: simply use style.display instead of style.visibility="hidden"|"visible" .
+	// pucgenie: simply use style.display instead of style.visibility="hidden"|"visible" . We don't know anything about the layout beforehand.
 	xDiv.style['display'] = 'none'
 	clearElementChilds(xDiv)
 	func(xDiv)

@@ -124,7 +124,7 @@ function nachDemLaden() {
 				// pucgenie: should aid TTS
 				xBtn.setAttribute('lang', choice.lang)
 				
-				xBtn.appendChild(document.createTextNode(choice))
+				xBtn.appendChild(document.createTextNode(choice.answer))
 				playDiv.appendChild(xBtn)
 				playDiv.appendChild(document.createElement('br'))
 				if (i < choices.length - 1){

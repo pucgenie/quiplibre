@@ -3,7 +3,7 @@
 class AbstractRound {
 	constructor(interfacingObj) {
 		this.pp = undefined
-		this.playerPairs = new Array(players.length)
+		this.playerPairs = []//new Array(interfacingObj.players.length) //optimization+readability
 		this.interfacingObj = interfacingObj
 	}
 	progressJudgement(){
@@ -17,7 +17,7 @@ class AbstractRound {
 			"possibilities": this.getAllAnswers(),
 			"prompt": this.pp.prompt
 		}
-		allPlayers(p => {
+		this.interfacingObj.allPlayers(p => {
 			p.netPlayer.sendCmd("displayChoice", choices)
 			p.stateStep("choosing")
 			p.promptId = choices.prompt.id
@@ -41,6 +41,15 @@ class AbstractRound {
 		}
 		return voarr
 	}
+	nextRound(){
+		this.nextRound1()
+		for (let xPlayer of this.interfacingObj.players) {
+			xPlayer.stateStep(this.roundLogic.getFirstStep())
+			
+			xPlayer.promptId = xPlayer.prompts[0].id
+			xPlayer.netPlayer.sendCmd('displayPrompt', xPlayer.prompts[0])
+		}
+	}
 }
 
 class PlayerPair {
@@ -63,10 +72,11 @@ class Round_1_2 extends AbstractRound {
 		super(interfacingObj)
 	}
 	static resetPlayer(p) {
-		p.prompts = new Array(2) //optimization+readability
-		p.answers = new Array(2) //optimization+readability
+		p.prompts = []//new Array(2) //optimization+readability
+		p.answers = []//new Array(2) //optimization+readability
 	}
 	nextRound1() {
+		const players = this.interfacingObj.players
 		// pucgenie: shuffle players so that matchmaking is less complex
 		shuffle(players)
 		let i = players.length
@@ -84,8 +94,6 @@ class Round_1_2 extends AbstractRound {
 		}
 		// pucgenie: link 2nd to 1st player
 		_pps.push(new PlayerPair(xLP, firstP, this.initVotesArray(2)))
-		
-		//console.log(this.playerPairs)
 	}
 	getAllAnswers() {
 		// pucgenie: i-th player's answer #i
@@ -93,10 +101,13 @@ class Round_1_2 extends AbstractRound {
 		//return [this.pp.players[0].answers[0], this.pp.players[1].answers[1]]
 	}
 	allPlayersHaveAnswered(){
-		return allPlayers(p => p.answers.length==2)
+		return this.interfacingObj.allPlayers(p => p.answers.length==2)
 	}
 	getAnswerIndex(playerIndex){
 		return playerIndex
+	}
+	getFirstStep(){
+		return 'prompt0'
 	}
 }
 
@@ -105,22 +116,25 @@ class Round_3 extends AbstractRound {
 		super(interfacingObj)
 	}
 	nextRound1() {
-		const xPrompts = [AbstractRound.pullPrompt()]
-		const ppair = {players: players, prompt: xPrompts[0], votes: this.initVotesArray(players.length)}
+		const xPrompts = [pullPrompt()]
+		const ppair = {players: this.interfacingObj.players, prompt: xPrompts[0], votes: this.initVotesArray(players.length)}
 		
 		this.playerPairs.push(ppair)
-		for (let xPlayer of players) { //todo: could refactor this to use allPlayers
+		for (let xPlayer of this.interfacingObj.players) { //todo: could refactor this to use allPlayers
 			xPlayer.prompts = xPrompts
-			xPlayer.answers = new Array(1)
+			xPlayer.answers = []//new Array(1)
 		}
 	}
 	getAllAnswers() {
 		return this.pp.players.map(xPlayer => xPlayer.answers[0])
 	}
 	allPlayersHaveAnswered(){
-		return allPlayers(p => p.answers.length==1)
+		return this.interfacingObj.allPlayers(p => p.answers.length==1)
 	}
 	getAnswerIndex(playerIndex){
 		return playerIndex
+	}
+	getFirstStep(){
+		return 'prompt1'
 	}
 }
