@@ -117,7 +117,7 @@ class Round_3 extends AbstractRound {
 	}
 	nextRound1() {
 		const xPrompts = [pullPrompt()]
-		const ppair = {players: this.interfacingObj.players, prompt: xPrompts[0], votes: this.initVotesArray(players.length)}
+		const ppair = {players: this.interfacingObj.players, prompt: xPrompts[0], votes: this.initVotesArray(this.interfacingObj.players.length)}
 		
 		this.playerPairs.push(ppair)
 		for (let xPlayer of this.interfacingObj.players) { //todo: could refactor this to use allPlayers
@@ -129,7 +129,8 @@ class Round_3 extends AbstractRound {
 		return this.pp.players.map(xPlayer => xPlayer.answers[0])
 	}
 	allPlayersHaveAnswered(){
-		return this.interfacingObj.allPlayers(p => p.answers.length==1)
+		// pucgenie: may abort at first falsey occurence
+		return this.interfacingObj.players.every(p => p.answers.length==1)
 	}
 	getAnswerIndex(playerIndex){
 		return playerIndex

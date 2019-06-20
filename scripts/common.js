@@ -1,5 +1,8 @@
 "use strict";
 
+/**
+ * We want to have one reliable source of user preferred languages in order.
+**/
 if (!navigator.languages) {
 	console.log("navigator.languages was not available")
 	navigator.languages = []
@@ -11,7 +14,7 @@ if(navigator.languages.length == 0){
 	if(navigator.language){
 		navigator.languages.push(navigator.language)
 	}
-	//console.log(navigator.languages)
+	// add base language of first locale as fallback
 	navigator.languages.push(navigator.languages[0].substring(0, 2))
 }
 
@@ -20,13 +23,9 @@ class Uebersetz {
 		this.ui_messages = {}
 		lazyLoad('locales.json', locList => {
 			const availLocs = JSON.parse(locList)
-			let altLangs = navigator.languages
-			for(let iXx = 2; iXx --> 0; --iXx){
-				this.languages = new Set(availLocs.filter(value => altLangs.includes(value)))
-				if(this.languages.size > 0){
-			break
-				}
-				altLangs = navigator.languages.map(x => x.substring(0, 2))
+			this.languages = new Set(availLocs.filter(value => navigator.languages.includes(value)))
+			if(this.languages.size == 0){
+				this.languages.addAll(availLocs.filter(value => navigator.languages.map(x => x.substring(0, 2)).includes(value)))
 			}
 			// pucgenie: last resort fallback
 			this.languages.add('en')
@@ -49,7 +48,7 @@ class Uebersetz {
 	/**
 	 * Full-blown translate-and-format function.
 	 * Quite some overhead and complex return control flow.
-	 * @author pucgenie@hotmail.com
+	 * @author pucgenie
 	**/
 	__(langs, key, basis, funcOut) {
 		//console.log({"lookup": key, "langs": langs})
@@ -66,10 +65,18 @@ class Uebersetz {
 	throw {"unresolvableTranslationKey": key}
 		}
 		if (Array.isArray(ret)) {
-			if (ret.length > 1) {
-				ret = appendFormattedText(ret, basis, funcOut)
-			} else {
-				funcOut(ret[0])
+			for(let txtTeil of ret){
+				if(!txtTeil) {
+					console.log("Skipping useless (null or undefined) part of " + txtImpl)
+			continue
+				}
+				if(txtTeil.startsWith('${')){
+					// may not contain "(),;"
+					//if(!txtTeil.endsWith("}")) throw "defective/malicious template detected"
+					funcOut(eval("basis." + txtTeil.substring(2, txtTeil.length - 1)))
+			continue
+				}
+				funcOut(txtTeil)
 			}
 		} else {
 			funcOut(ret)
@@ -79,37 +86,11 @@ class Uebersetz {
 }
 
 /**
- * 
-**/
-function appendFormattedText(txtTmpl, basis, funcOut){
-	let ret
-	if (!funcOut) {
-		ret = []
-		funcOut = xWert => ret.push(xWert)
-	}
-	for(let txtTeil of txtTmpl){
-		if(!txtTeil) {
-			console.log("Skipping useless (null or undefined) part of " + txtImpl)
-	continue
-		}
-		if(txtTeil.startsWith('${')){
-			// may not contain "(),;"
-			//if(!txtTeil.endsWith("}")) throw "defective/malicious template detected"
-			funcOut(eval("basis." + txtTeil.substring(2, txtTeil.length - 1)))
-	continue
-		}
-		funcOut(txtTeil)
-	}
-	return ret
-}
-
-/**
  * Handles special translation message parts like "newlines as <br>".
 **/
 function textToNode(input) {
 	if(input==='\n') {
-		return document.createElement('br')
-	return
+	return document.createElement('br')
 	}
 	return document.createTextNode(input)
 }
@@ -139,21 +120,23 @@ function createLangTextNode(cssClass, text, lang) {
 /**
  * Clears xDiv and calls func(xDiv), which should add elements to xDiv ("display something").
 **/
-function replaceContent(xDiv, func){
+function replaceContent(xDiv, func, clearBefore=true){
 	// pucgenie: simply use style.display instead of style.visibility="hidden"|"visible" . We don't know anything about the layout beforehand.
 	xDiv.style['display'] = 'none'
-	clearElementChilds(xDiv)
+	if (clearBefore){
+		clearElementChilds(xDiv)
+	}
 	func(xDiv)
 	xDiv.style['display'] = 'block'
+	return xDiv
 }
 
 /**
  * Should enhance readability a litte bit.
  * Assumes that there exists a customized __ function for translation.
 **/
-function replaceContentTranslated(xDiv, transKey, params) {
-	replaceContent(xDiv, xDiv => __(transKey, params, satz => xDiv.appendChild(textToNode(satz))))
-	return xDiv
+function replaceContentTranslated(xDiv, transKey, params, clearBefore=true) {
+	return replaceContent(xDiv, xDiv => xDiv.setAttribute('lang', __(transKey, params, satz => xDiv.appendChild(textToNode(satz)))), clearBefore)
 }
 
 /**

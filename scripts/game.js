@@ -279,6 +279,9 @@ class QuiplibreContext {
 						const msg = new SpeechSynthesisUtterance()
 						msg.text = xP.innerText
 						msg.lang = xP.getAttribute('lang')
+						// pucgenie: as a workaround (SpeechSynthesisUtterance ignores lang), set <body lang="${choice.lang}">
+						//document.setAttribute('lang', choice.lang)
+						
 						if (!prevMsg) {
 							window.speechSynthesis.speak(msg)
 					continue

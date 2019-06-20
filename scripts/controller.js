@@ -13,13 +13,13 @@ const uebersetz = new Uebersetz('client_messages', uebersetz => {
 })
 
 function nachDemLaden() {
-	const nameDiv = document.getElementById('nameDiv')
+	const nameDiv   = document.getElementById('nameDiv')
 	const pointsDiv = document.getElementById('pointsDiv')
-	const playDiv = document.getElementById('playDiv')
+	const playDiv   = document.getElementById('playDiv')
 	const promptDiv = document.getElementById('promptDiv')
-	const inputBox = document.getElementById('inputBox')
-	const langBox = document.getElementById('langBox')
-	const form = document.getElementById('form')
+	const inputBox  = document.getElementById('inputBox')
+	const langBox   = document.getElementById('langBox')
+	const form      = document.getElementById('form')
 	
 	const choiceBtns = []
 	langBox.value = navigator.languages[0]
@@ -36,7 +36,7 @@ function nachDemLaden() {
 			lang: langBox.value
 		}
 		if (txData.promptId == 0) {
-			txData['color'] = document.getElementById('playerColor').value
+			txData['color'] = document.getElementById("playerColor").value
 		}
 		client.sendCmd('receiveAnswer', txData)
 		inputBox.value = ""
@@ -63,34 +63,37 @@ function nachDemLaden() {
 			}
 			const trTxt = window.prompts2[prompt.id]
 			if(trTxt){
-				prompt.prompt = trTxt
-				prompt.lang = uebersetz.languages[0]
+				// FIXME: translate if [0] === false
+				prompt.prompt = trTxt[1]
+				if (!trTxt[0]) {
+					prompt.prompt = translate(prompt.prompt)
+				}
+				prompt.lang = window.prompts2Lang
 			}
 			promptDiv.appendChild(document.createTextNode(prompt.prompt))
 			if (prompt.id == 0) {
-				if(prompt.resPack){
-					function* forLanguages() {
-						for(let xLang of uebersetz.languages){
-							yield `${prompt.resPack}_${xLang}.json`
-						}
-					}
-					const langIter = forLanguages()
+				if (prompt.resPack){
+					const langIter = uebersetz.languages.values()
 					const saveParsed = rText => {
 						window.prompts2 = JSON.parse(rText)
 					}
 					const retryHandler1 = (xhr, progressEvent) => {
-						if(xhr.status !== 404){
+						if (xhr.status !== 404){
+							// pucgenie: assert status === 200
 					return
 						}
 						if(progressEvent !== "bootstrap"){
 							// pucgenie: debug or trace?
 							console.log(progressEvent, xhr.status)
 						}
+						// pucgenie: asynchronous loop (some kind of flattened recursion)
 						const xLang = langIter.next().value
 						if (!xLang){
+							// pucgenie: no more language entries. Most likely the controller should use server-provided prompt texts then.
 					return
 						}
-						lazyLoad(xLang, saveParsed, retryHandler1)
+						window.prompts2Lang = xLang
+						lazyLoad(`${prompt.resPack}_${xLang}.json`, saveParsed, retryHandler1)
 					}
 					retryHandler1({status: 404}, "bootstrap")
 				}
@@ -128,9 +131,7 @@ function nachDemLaden() {
 				playDiv.appendChild(xBtn)
 				playDiv.appendChild(document.createElement('br'))
 				if (i < choices.length - 1){
-					const langedSpan = document.createElement('span')
-					langedSpan.setAttribute('lang', __("VoteOr", undefined, satz => langedSpan.appendChild(textToNode(satz))))
-					playDiv.appendChild(langedSpan)
+					playDiv.appendChild(replaceContentTranslated(document.createElement('span'), "VoteOr", undefined))
 					playDiv.appendChild(document.createElement('br'))
 				}
 				// added in ascending order (by ID)
