@@ -33,11 +33,15 @@ Here are the three most important files:
                     # It starts happyfuntimes and
                     # opens game.html in a window
 
-    game.html       # the game. All HTML/CSS/JavaScript are in this file
-                    # for simplicity
+    game.html       # the game on the big screen.
 
-    controller.html # the controller. This is served to player's devices
+    controller.html # the controller. This is served to players' devices
                     # when they go to happyfuntimes.net
 
 ## What's the license of this project?
 This project is released under the license found in [LICENSE.txt](LICENSE.txt). This project depends on various other projects, which are not our responsibility and which are released under their own licenses.
+
+# Technical limitations
+
+## locales.js
+Defines all avaliable locales for the User Interfaces. It should contain the locale tags occuring in `locales/` filenames. It is possible to be automated.
