@@ -126,11 +126,59 @@ class QuiplibrePlayer extends AbstractPlayer {
 		}
 		this.syncMap['prompt1'] = () => {
 			this.displayMessage("PleaseWaitForOtherAnswers")
-			if(interfacingObj.roundLogic.allPlayersHaveAnswered()){
+			if(this.interfacingObj.roundLogic.allPlayersHaveAnswered()){
 				console.log("all players answered.")
-				interfacingObj.roundLogic.progressJudgement()
+				this.interfacingObj.roundLogic.progressJudgement()
 			}
 		}
+	}
+	evtReceiveChoice(cmd) {
+		//console.log(cmd)
+		//console.log(this)
+		if(cmd.promptId != this.promptId){//remember, == does not work on arrays
+			console.log({"error": "ignoring choice as it's between incorrect options", "remotePromptId": cmd.promptId, "expectedPromptId": this.promptId})
+			return
+		}
+		if(this.state !== 'choosing'){
+			console.log("ignoring choice as player state is "+this.state)
+			this.displayMessage("SuspectHacker")
+	return
+		}
+		this.interfacingObj.roundLogic.pp.votes[cmd.index].push(this)
+		if (this.interfacingObj.round != this.interfacingObj.maxRounds || ++this.voteCountR3 == maxRounds) {
+			// pucgenie: in any case - don't care if it already is zero at the moment
+			this.voteCountR3 = 0
+			
+			this.stateStep('rest')
+			this.displayMessage("YouVotedFor", {voteNumber: cmd.index+1})
+			let stimmenSumme = 0
+			for(let voteN of this.interfacingObj.roundLogic.pp.votes) {
+				stimmenSumme += voteN.length
+			}
+			let voteFactor = this.interfacingObj.round == this.interfacingObj.maxRounds ? this.interfacingObj.maxRounds : 1
+			if(stimmenSumme >= this.interfacingObj.players.length * voteFactor){
+				if (stimmenSumme > this.interfacingObj.players.length * voteFactor) {
+					console.log("There are more votes than players!")
+				}
+				
+				this.interfacingObj.renderPreviousResults()
+				this.interfacingObj.roundLogic.progressJudgement()
+			}
+		}
+	}
+	/**
+	 * @override
+	 */
+	registerEventHandlers() {
+		super.registerEventHandlers()
+		this.netPlayer.addEventListener('receiveChoice', this.evtReceiveChoice)
+	}
+	/**
+	 * @override
+	 */
+	unregisterEventHandlers(){
+		super.unregisterEventHandlers()
+		this.netPlayer.removeEventListener('receiveChoice', this.evtReceiveChoice)
 	}
 }
 
