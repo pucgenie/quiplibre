@@ -44,11 +44,21 @@ class AbstractRound {
 	nextRound(){
 		this.nextRound1()
 		for (let xPlayer of this.interfacingObj.players) {
-			xPlayer.stateStep(this.roundLogic.getFirstStep())
+			xPlayer.stateStep(this.getFirstStep())
 			
 			xPlayer.promptId = xPlayer.prompts[0].id
 			xPlayer.netPlayer.sendCmd('displayPrompt', xPlayer.prompts[0])
 		}
+	}
+	voteFor(choiceIdx, player) {
+		this.pp.votes[choiceIdx].push(player)
+	}
+	sumVotes() {
+		let stimmenSumme = 0
+		for(let voteN of this.pp.votes) {
+			stimmenSumme += voteN.length
+		}
+		return stimmenSumme
 	}
 }
 
@@ -101,7 +111,7 @@ class Round_1_2 extends AbstractRound {
 		//return [this.pp.players[0].answers[0], this.pp.players[1].answers[1]]
 	}
 	allPlayersHaveAnswered(){
-		return this.interfacingObj.allPlayers(p => p.answers.length==2)
+		return this.interfacingObj.players.every(p => p.answers.length==2)
 	}
 	getAnswerIndex(playerIndex){
 		return playerIndex

@@ -131,54 +131,43 @@ class QuiplibrePlayer extends AbstractPlayer {
 				this.interfacingObj.roundLogic.progressJudgement()
 			}
 		}
-	}
-	evtReceiveChoice(cmd) {
-		//console.log(cmd)
-		//console.log(this)
-		if(cmd.promptId != this.promptId){//remember, == does not work on arrays
-			console.log({"error": "ignoring choice as it's between incorrect options", "remotePromptId": cmd.promptId, "expectedPromptId": this.promptId})
-			return
-		}
-		if(this.state !== 'choosing'){
-			console.log("ignoring choice as player state is "+this.state)
-			this.displayMessage("SuspectHacker")
-	return
-		}
-		this.interfacingObj.roundLogic.pp.votes[cmd.index].push(this)
-		if (this.interfacingObj.round != this.interfacingObj.maxRounds || ++this.voteCountR3 == maxRounds) {
-			// pucgenie: in any case - don't care if it already is zero at the moment
-			this.voteCountR3 = 0
-			
-			this.stateStep('rest')
-			this.displayMessage("YouVotedFor", {voteNumber: cmd.index+1})
-			let stimmenSumme = 0
-			for(let voteN of this.interfacingObj.roundLogic.pp.votes) {
-				stimmenSumme += voteN.length
+		
+		this.evtListeners['receiveChoice'] = (cmd) => {
+			//console.log(cmd)
+			//console.log(this)
+			if(cmd.promptId != this.promptId){//remember, == does not work on arrays
+				console.log({"error": "ignoring choice as it's between incorrect options", "remotePromptId": cmd.promptId, "expectedPromptId": this.promptId})
+				// possible race condition (if using timers)
+				return
 			}
-			let voteFactor = this.interfacingObj.round == this.interfacingObj.maxRounds ? this.interfacingObj.maxRounds : 1
-			if(stimmenSumme >= this.interfacingObj.players.length * voteFactor){
-				if (stimmenSumme > this.interfacingObj.players.length * voteFactor) {
-					console.log("There are more votes than players!")
-				}
+			if(this.state !== 'choosing'){
+				console.log("ignoring choice as player state is "+this.state)
+				this.displayMessage("SuspectHacker")
+		return
+			}
+			this.interfacingObj.roundLogic.voteFor(cmd.index, this)
+			if (this.interfacingObj.round != this.interfacingObj.maxRounds || ++this.voteCountR3 == maxRounds) {
+				// pucgenie: in any case - don't care if it already is zero at the moment
+				this.voteCountR3 = 0
 				
-				this.interfacingObj.renderPreviousResults()
-				this.interfacingObj.roundLogic.progressJudgement()
+				this.stateStep('rest')
+				this.displayMessage("YouVotedFor", {voteNumber: cmd.index+1})
+				const stimmenSumme = this.interfacingObj.roundLogic.sumVotes()
+				const voteFactor = this.interfacingObj.round == this.interfacingObj.maxRounds ? this.interfacingObj.maxRounds : 1
+				const fullSum = this.interfacingObj.players.length * voteFactor
+				if(stimmenSumme >= fullSum){
+					if (stimmenSumme > fullSum) {
+						// wtf
+						console.log("There are more votes than players!")
+					}
+					
+					this.interfacingObj.renderPreviousResults()
+					this.interfacingObj.roundLogic.progressJudgement()
+				}
 			}
 		}
-	}
-	/**
-	 * @override
-	 */
-	registerEventHandlers() {
-		super.registerEventHandlers()
-		this.netPlayer.addEventListener('receiveChoice', this.evtReceiveChoice)
-	}
-	/**
-	 * @override
-	 */
-	unregisterEventHandlers(){
-		super.unregisterEventHandlers()
-		this.netPlayer.removeEventListener('receiveChoice', this.evtReceiveChoice)
+		
+		this.registerEventHandlers()
 	}
 }
 
@@ -303,7 +292,7 @@ class QuiplibreContext {
 				if (erstes) {
 					erstes = false
 				} else {
-					playDiv.appendChild(createLangTextNode('answer', _voteOr.text, _voteOr.lang))
+					playDiv.appendChild(createLangTextNode('answerOr', _voteOr.text, _voteOr.lang))
 				}
 				const outAnswer = xPlayer.answers[this.roundLogic.getAnswerIndex(i)]
 				playDiv.appendChild(createLangTextNode('answer', outAnswer.answer, outAnswer.lang))
@@ -330,16 +319,16 @@ class QuiplibreContext {
 						// pucgenie: as a workaround (SpeechSynthesisUtterance ignores lang), set <body lang="${choice.lang}">
 						//document.setAttribute('lang', choice.lang)
 						
-						if (!prevMsg) {
+						if (prevMsg) {
+							prevMsg.addEventListener('end', () => {
+								const sepMsg = new SpeechSynthesisUtterance()
+								Object.assign(sepMsg, textCache.voteOr)
+								sepMsg.addEventListener('end', () => window.speechSynthesis.speak(msg), {once: true})
+								window.speechSynthesis.speak(sepMsg)
+							})
+						} else {
 							window.speechSynthesis.speak(msg)
-					continue
 						}
-						prevMsg.addEventListener('end', () => {
-							const sepMsg = new SpeechSynthesisUtterance()
-							Object.assign(sepMsg, textCache.voteOr)
-							sepMsg.addEventListener('end', () => window.speechSynthesis.speak(msg), {once: true})
-							window.speechSynthesis.speak(sepMsg)
-						})
 						prevMsg = msg
 					}
 					prevMsg.addEventListener('end', () => hintergrundmusik.play())

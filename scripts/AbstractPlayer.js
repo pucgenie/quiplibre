@@ -1,6 +1,9 @@
 "use strict";
 
 class AbstractPlayer {
+	/**
+	 * You need to call `this.registerEventHandlers()` at the end of your constructor.
+	**/
 	constructor(xnetPlayer, name, interfacingObj) {
 		// pucgenie: never ever cache netplayer anywhere else. It may change during one game round.
 		this.netPlayer = xnetPlayer
@@ -14,6 +17,49 @@ class AbstractPlayer {
 		this.voteCountR3 = 0
 		this.connected = true
 		this.interfacingObj = interfacingObj
+		this.evtListeners = {
+			'disconnect': () => {
+				let ndx = this.interfacingObj.newPlayers.indexOf(this)
+				if (ndx >= 0){
+					this.interfacingObj.newPlayers.splice(ndx, 1)
+			return
+				}
+				ndx = this.interfacingObj.players.indexOf(this)
+				if (ndx >= 0) {
+					if(this.interfacingObj.gameBegun){
+						// pucgenie: keep player for reconnect
+						this.connected = false
+					} else {
+						this.interfacingObj.players.splice(ndx, 1)
+					}
+				} else {
+					console.log({"notfound": this})
+				}
+				this.interfacingObj.renderTotalPlayersText()
+			},
+			'receiveAnswer': (cmd) => {
+				//the idea is to check if the response is to the right question
+				//to prevent errors
+				//console.log(this);
+				//console.log({"promptId":cmd.promptId, "answer":cmd.answer});
+				if(cmd.answer===""){
+					this.displayMessage("ignoringEmptyCmdAnswer")
+			return
+				}
+				const xFn = this.stateMap[this.state]
+				if(!xFn){
+					console.log({"playerName": this.name, "unexpectedState": this.state, "previousState": this.previousState})
+			return
+				}
+				try {
+					xFn(cmd)
+				} catch (e) {
+					// pucgenie: check if it really is 'WrongQuestion' etc.
+					console.log(e)
+				}
+				this.syncCurrentStatus()
+			}
+		}
 		
 		const hslArr = hslToRgb(Math.random(), Math.random() * 0.5 + 0.5, 0.5)
 //		// pucgenie: cut-off negative channel values
@@ -68,57 +114,15 @@ class AbstractPlayer {
 				this.netPlayer.sendCmd('updateScore', this.score)
 			}
 		}
-		
-		this.registerEventHandlers()
-	}
-	evtReceiveAnswer(cmd) {
-		//the idea is to check if the response is to the right question
-		//to prevent errors
-		//console.log(this);
-		//console.log({"promptId":cmd.promptId, "answer":cmd.answer});
-		if(cmd.answer===""){
-			this.displayMessage("ignoringEmptyCmdAnswer")
-	return
-		}
-		const xFn = this.stateMap[this.state]
-		if(!xFn){
-			console.log({"playerName": this.name, "unexpectedState": this.state, "previousState": this.previousState})
-	return
-		}
-		try {
-			xFn(cmd)
-		} catch (e) {
-			// pucgenie: check if it really is 'WrongQuestion' etc.
-			console.log(e)
-		}
-		this.syncCurrentStatus()
-	}
-	evtDisconnect() {
-		let ndx = this.interfacingObj.newPlayers.indexOf(this)
-		if (ndx >= 0){
-			this.interfacingObj.newPlayers.splice(ndx, 1)
-	return
-		}
-		ndx = this.interfacingObj.players.indexOf(this)
-		if (ndx >= 0) {
-			if(this.interfacingObj.gameBegun){
-				// pucgenie: keep player for reconnect
-				this.connected = false
-			} else {
-				this.interfacingObj.players.splice(ndx, 1)
-			}
-		} else {
-			console.log({"notfound": this})
-		}
-		this.interfacingObj.renderTotalPlayersText()
 	}
 	stateStep(nextState){
 		this.previousState = this.state
 		this.state = nextState
 	}
 	registerEventHandlers(){
-		this.netPlayer.addEventListener('disconnect', this.evtDisconnect)
-		this.netPlayer.addEventListener('receiveAnswer', this.evtReceiveAnswer)
+		for(const eintrag in this.evtListeners) {
+			this.netPlayer.addEventListener(eintrag, this.evtListeners[eintrag])
+		}
 		
 		this.netPlayer.addEventListener('userLang', cmd => {
 			//console.log(cmd)
@@ -130,8 +134,10 @@ class AbstractPlayer {
 		if(!this.evtDisconnect){
 			throw "Invalid state: no listeners registered before!"
 		}
-		this.netPlayer.removeEventListener('disconnect', this.evtDisconnect)
-		this.netPlayer.removeEventListener('receiveAnswer', this.evtReceiveAnswer)
+		for(let eintrag of this.evtListeners) {
+			this.netPlayer.removeEventListener(eintrag, this.evtListeners[eintrag])
+			//delete this.evtListeners[eintrag]
+		}
 	}
 	syncCurrentStatus(){
 		const xFn2 = this.syncMap[this.previousState]
