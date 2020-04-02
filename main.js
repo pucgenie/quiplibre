@@ -27,24 +27,21 @@ try {
   var args = optionator.parse(process.argv);
 } catch (e) {
   console.error(e);
-  process.exit(1);  // eslint-disable-line
+  process.exit(1);
 }
 
 function printHelp() {
   console.log(optionator.generateHelp());
-  process.exit(0);  // eslint-disable-line
 }
 
 if (args.help) {
   printHelp();
+  process.exit(0);
 }
 
 const happyfuntimes = require('happyfuntimes');
 const electron = require('electron');
 const querystring = require('querystring');
-
-// pucgenie: wtf?
-const webContents = electron.webContents;
 
 const app = electron.app;
 const BrowserWindow = electron.BrowserWindow;
@@ -97,21 +94,20 @@ function createWindow() {
   }
 
   // open links in browser
-  const webContents = gameWindow.webContents;
   const handleRedirect = (e, url) => {
-    if(url != webContents.getURL()) {
+    if(url != gameWindow.webContents.getURL()) {
       e.preventDefault();
       electron.shell.openExternal(url);
     }
   };
 
-  webContents.on('will-navigate', handleRedirect);
-  webContents.on('new-window', handleRedirect);
-  webContents.on('dom-ready', () => {
-    if (!isDevMode) {
-      gameWindow.setFullScreen(true);
-    }
-  });
+  gameWindow.webContents.on('will-navigate', handleRedirect);
+  gameWindow.webContents.on('new-window', handleRedirect);
+  if (!isDevMode) {
+    gameWindow.webContents.on('dom-ready', () => {
+        gameWindow.setFullScreen(true);
+    });
+  }
 }
 
 function startIfReady() {
@@ -132,17 +128,17 @@ app.on('window-all-closed', () => {
 function setupMenus() {
   const menuTemplate = [
     {
-      label: 'View',
+      label: 'menuView',
       submenu: [
         {
-          label: 'Reload',
+          label: 'menuReload',
           accelerator: 'CmdOrCtrl+R',
           click(item, focusedWindow) {
             if (focusedWindow) focusedWindow.reload();
           }
         },
         {
-          label: 'Toggle Full Screen',
+          label: 'menuToggleFullScreen',
           accelerator: isOSX ? 'Ctrl+Command+F' : 'F11',
           click(item, focusedWindow) {
             if (focusedWindow)
@@ -150,7 +146,7 @@ function setupMenus() {
           }
         },
         {
-          label: 'Toggle Developer Tools',
+          label: 'menuToggleDeveloperTools',
           accelerator: isOSX ? 'Alt+Command+I' : 'Ctrl+Shift+I',
           click(item, focusedWindow) {
             if (focusedWindow)

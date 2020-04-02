@@ -1,8 +1,8 @@
 {
-"Player":                   ["spieler", "${playerNum}"],
-"wonVotesPoints":           ["${Player.name}", " hat ", "${Votes.length}", " Stimmen und somit ", "${Player.score}", " Punkte dazugewonnen!"],
+"Player":                   ["spieler", ["playerNum"]],
+"wonVotesPoints":           [["Player.name"], " hat ", ["Votes.length"], " Stimmen und somit ", ["Player.score"], " Punkte dazugewonnen!"],
 "LastPlayerJoined":         "Zuletzt hinzugekommener Spieler: ",
-"TotalPlayers":             ["Spieleranzahl: ", "${totalPlayerCount}"],
+"TotalPlayers":             ["Spieleranzahl: ", ["totalPlayerCount"]],
 "BtnStartGame":             "Spiel starten",
 "NewGameSamePlayers":       "Neues Spiel mit denselben Spielern",
 "NewGameNewPlayers":        "Neues Spiel mit neuen Spielern",
@@ -10,7 +10,7 @@
 "WelcomeBanner":            ["Hallo, willkommen zu Quiplibre! Verbinde mit dem WLAN und besuche happyfuntimes.net, um beizutreten!", "\n", "Noch keine Teilnehmer."],
 "VoteOr":                   "ODER",
 "NeedMorePlayers":          "Ihr benötigt zumindest zwei Spieler zum Spielen von Quiplibre!",
-"RoundBanner":              ["Zeit für eine gemütliche Runde Quiplibre! Runde ", "${roundNum}", ", um genau zu sein!"],
+"RoundBanner":              ["Zeit für eine gemütliche Runde Quiplibre! Runde ", ["roundNum"], ", um genau zu sein!"],
 "PreviousResults":          ["Vorige Ergebnisse:", "\n"],
 "GameEndedScore":           "Das Spiel ist vorbei! Ergebnistabelle:",
 "comment": "Einige Systemfehlermeldungen wurden absichtlich nicht übersetzt."

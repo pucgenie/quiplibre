@@ -4,8 +4,7 @@
 window.prompts2 = []
 
 const uebersetz = new Uebersetz('client_messages', uebersetz => {
-	window.__ = (key, basis, func, joined) => uebersetz.__(uebersetz.languages, key, basis, func, joined)
-	if (document.readyState !== 'complete') {
+	if (document.readyState !== 'complete' && document.readyState !== 'interactive') {
 		document.addEventListener('DOMContentLoaded', nachDemLaden, {once: true})
 	} else {
 		nachDemLaden()
@@ -59,7 +58,7 @@ function nachDemLaden() {
 		replaceContent(promptDiv, promptDiv => {
 			promptDiv.setAttribute("promptid", prompt.id)
 			if (prompt.id == 0) {
-				__("WhatsYourName", undefined, satz => prompt.prompt = satz)
+				uebersetz.__("WhatsYourName", undefined, satz => prompt.prompt = satz)
 			}
 			const trTxt = window.prompts2[prompt.id]
 			if(trTxt){

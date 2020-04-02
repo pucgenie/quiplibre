@@ -1,7 +1,7 @@
 {
 "WhatsYourName":            "Wie willst du genannt werden?",
-"YouVotedFor":              ["Du hast für ", "${voteNumber}", " gestimmt."],
-"NamelessUnexpectedPrompt": ["Anscheinend hast du irgendwie die falsche Frage beantwortet - als erstes erwarten wir deinen Namen. Wie hast du es geschafft, Frage#", "${promptId}", " in diesem Moment zu beantworten?"],
+"YouVotedFor":              ["Du hast für ", ["voteNumber"], " gestimmt."],
+"NamelessUnexpectedPrompt": ["Anscheinend hast du irgendwie die falsche Frage beantwortet - als erstes erwarten wir deinen Namen. Wie hast du es geschafft, Frage#", ["promptId"], " in diesem Moment zu beantworten?"],
 "RestStateSoNoAction":      "Du hast Pause und darfst nichts tun.",
 "ignoringEmptyCmdAnswer":   "Leere Antworten werden ignoriert...",
 "CantJoinRunningGame":      "Beitritt zu laufendem Spiel nicht möglich.",
@@ -11,7 +11,7 @@
 "Disconnected":         "Verbindung getrennt...",
 "SubmitAnswer":         "Absenden",
 "VoteOr":               "ODER",
-"Points":               ["Punkte: ", "${score}"],
+"Points":               ["Punkte: ", ["score"]],
 "GetReady":             "Das Spiel beginnt gleich! Schau auf den großen Bildschirm!",
 "SuspectHacker":        "Ey du deutscher Hacker, husch husch.",
 "comment": ""

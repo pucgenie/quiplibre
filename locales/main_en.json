@@ -1,0 +1,7 @@
+{
+"menuView":                 "View",
+"menuReload":               "Reload",
+"menuToggleFullScreen":     "Toggle Full Screen",
+"menuToggleDeveloperTools": "Toggle Developer Tools",
+"comment": "Should contain values to all translation keys."
+}

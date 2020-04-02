@@ -7,6 +7,7 @@
 | Open | Med | Polish graphics         |        |
 | Open | Med | Add player pictures     |        |
 | Open | Low | Animate player pictures |        |
+| Open | Med | Implement audience mode |        |
 
 ## Soundslike (TBD)
 |Status|Prio |Keywords                             |Comments|
@@ -14,6 +15,7 @@
 | Open |High | Play sound pairs in game.html       |        |
 | Open |High | Let each player choose a sound pair |        |
 | Open |High | Implement single judge mode         |        |
+| Open | Med | Implement audience mode             |        |
 
 # Judge modes
 

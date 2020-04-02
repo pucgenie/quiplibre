@@ -1,8 +1,8 @@
 {
-"Player":                   ["player", "${playerNum}"],
-"wonVotesPoints":           ["${Player.name}", " won ", "${Votes.length}", " votes and thus ", "${Player.score}", " points!"],
+"Player":                   ["player", ["playerNum"]],
+"wonVotesPoints":           [["Player.name"], " won ", ["Votes.length"], " votes and thus ", ["Player.score"], " points!"],
 "LastPlayerJoined":         "Last player to join: ",
-"TotalPlayers":             ["Total players: ", "${totalPlayerCount}"],
+"TotalPlayers":             ["Total players: ", ["totalPlayerCount"]],
 "BtnStartGame":             "Start the game",
 "NewGameSamePlayers":       "New game with same Players",
 "NewGameNewPlayers":        "New game with new Players",
@@ -10,9 +10,9 @@
 "WelcomeBanner":            ["Hi, welcome to Quiplibre! Connect to wifi and visit happyfuntimes.net to join!", "\n", "No players established."],
 "VoteOr":                   "OR",
 "NeedMorePlayers":          "You need at least two people to connect in order to play Quiplibre!",
-"RoundBanner":              ["Time for a nice round of Quiplibre! Round ", "${roundNum}", ", to be exact!"],
+"RoundBanner":              ["Time for a nice round of Quiplibre! Round ", ["roundNum"], ", to be exact!"],
 "PreviousResults":          ["Previous results:", "\n"],
 "GameEndedScore":           "End of the game! Here's a scoreboard:",
-"PreviousWinner":           ["Previous winner: ", "${Player}"],
+"PreviousWinner":           ["Previous winner: ", ["Player"]],
 "comment": "Should contain values to all translation keys."
 }

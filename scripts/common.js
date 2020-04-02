@@ -50,11 +50,11 @@ class Uebersetz {
 	 * Quite some overhead and complex return control flow.
 	 * @author pucgenie
 	**/
-	__(langs, key, basis, funcOut) {
+	__(key, basis, funcOut) {
 		//console.log({"lookup": key, "langs": langs})
 		let ret
 		let usedLang
-		for (let altLang of langs) {
+		for (let altLang of this.languages) {
 			usedLang = altLang
 			ret = this.ui_messages[altLang][key]
 			if (ret) {
@@ -70,10 +70,8 @@ class Uebersetz {
 					console.log("Skipping useless (null or undefined) part of " + txtImpl)
 			continue
 				}
-				if(txtTeil.startsWith('${')){
-					// may not contain "(),;"
-					//if(!txtTeil.endsWith("}")) throw "defective/malicious template detected"
-					funcOut(eval("basis." + txtTeil.substring(2, txtTeil.length - 1)))
+				if(Array.isArray(txtTeil)){
+					funcOut(eval("basis." + txtTeil[0]))
 			continue
 				}
 				funcOut(txtTeil)
@@ -107,13 +105,13 @@ function clearElementChilds(xElem){
 /**
  * 
 **/
-function createLangTextNode(cssClass, text, lang) {
+function createLangTextNode(cssClass, textArr, lang) {
 	const xNode = document.createElement('p')
 	xNode.classList.add(cssClass)
 	if(lang){
 		xNode.setAttribute('lang', lang)
 	}
-	xNode.appendChild(textToNode(text))
+	textArr.forEach(txtP => xNode.appendChild(textToNode(txtP)))
 	return xNode
 }
 
@@ -133,10 +131,10 @@ function replaceContent(xDiv, func, clearBefore=true){
 
 /**
  * Should enhance readability a litte bit.
- * Assumes that there exists a customized __ function for translation.
+ * Assumes that there exists a uebersetz instance for translation.
 **/
 function replaceContentTranslated(xDiv, transKey, params, clearBefore=true) {
-	return replaceContent(xDiv, xDiv => xDiv.setAttribute('lang', __(transKey, params, satz => xDiv.appendChild(textToNode(satz)))), clearBefore)
+	return replaceContent(xDiv, xDiv => xDiv.setAttribute('lang', uebersetz.__(transKey, params, satz => xDiv.appendChild(textToNode(satz)))), clearBefore)
 }
 
 /**

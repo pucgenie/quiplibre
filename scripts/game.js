@@ -5,7 +5,6 @@ const textCache = {
 }
 
 const uebersetz = new Uebersetz('game_messages', uebersetz => {
-	window.__ = (key, basis, func, joined) => uebersetz.__(uebersetz.languages, key, basis, func, joined)
 	if (document.readyState !== 'complete' && document.readyState !== 'interactive') {
 		document.addEventListener('DOMContentLoaded', nachDemLaden, {once: true})
 	} else {
@@ -13,8 +12,8 @@ const uebersetz = new Uebersetz('game_messages', uebersetz => {
 	}
 	// pucgenie: cache some texts
 	const voarr = []
-	textCache.voteOr.lang = __("VoteOr", undefined, Array.prototype.push.bind(voarr))
-	textCache.voteOr.text = voarr.join('')
+	textCache.voteOr.lang = uebersetz.__("VoteOr", undefined, Array.prototype.push.bind(voarr))
+	textCache.voteOr.text = voarr
 })
 
 /**
@@ -198,17 +197,27 @@ class QuiplibreContext {
 		this.roundLogic = undefined
 		this.maxRounds  = 3 //a nice number of rounds
 	}
+	hideAttrDiv() {
+		if (attrDiv.shouldHide == true) {
+			attrDiv.style['visibility'] = 'hidden'
+			attrDiv.shouldHide = false
+		}
+	}
 	renderTotalPlayersText() {
-		__("TotalPlayers", {totalPlayerCount: this.players.length}, satz => playDiv.appendChild(textToNode(satz)))
+		replaceContentTranslated(playersConnectedDiv, "TotalPlayers", {totalPlayerCount: this.players.length})
+		
+		//attrDiv.shouldHide = false
+		attrDiv.style['visibility'] = 'visible'
+		attrDiv.shouldHide = true
+		setTimer(2048, this.hideAttrDiv)
 	}
 	renderPreviousResults() {
-		attrDiv.style['visibility'] = 'hidden'
 		replaceContent(prevDiv, prevDiv => {
-			__("PreviousResults", undefined, satz => prevDiv.appendChild(textToNode(satz)))
+			uebersetz.__("PreviousResults", undefined, satz => prevDiv.appendChild(textToNode(satz)))
 			
 			this.roundLogic.awardPoints((xPlayer, xVotes) => {
 				const xPDe = document.createElement('p')
-				__("wonVotesPoints", {"Player": xPlayer, "Votes": xVotes}, xNeu => xPDe.appendChild(textToNode(xNeu)))
+				uebersetz.__("wonVotesPoints", {"Player": xPlayer, "Votes": xVotes}, xNeu => xPDe.appendChild(textToNode(xNeu)))
 				prevDiv.appendChild(xPDe)
 			})
 			
@@ -217,7 +226,7 @@ class QuiplibreContext {
 	}
 	renderNewestPlayer(xPlayer) {
 		replaceContent(playDiv, playDiv => {
-			__("LastPlayerJoined", undefined, satz => playDiv.appendChild(textToNode(satz)))
+			uebersetz.__("LastPlayerJoined", undefined, satz => playDiv.appendChild(textToNode(satz)))
 			const xB = document.createElement('b')
 			xB.appendChild(document.createTextNode(xPlayer.name))
 			xB.style['color'] = xPlayer.color
@@ -237,7 +246,8 @@ class QuiplibreContext {
 		btnNextRound.style['display']  = 'none'
 		titelvideo.pause()
 		titelvideo.style['display'] = 'none'
-		attrDiv.style['visibility'] = 'hidden'
+		attrDiv.shouldHide = true
+		this.hideAttrDiv()
 		//clearElementChilds(playDiv)
 		this.gameBegun = true
 		if (++this.round > this.maxRounds){
@@ -260,7 +270,10 @@ class QuiplibreContext {
 				playDiv.appendChild(xTable)
 			})
 			gameCtrlDiv.style['display'] = 'block'
+			
+			attrDiv.shouldHide = false
 			attrDiv.style['visibility']  = 'visible'
+			
 			titelvideo.style['display']  = 'block'
 			this.players.forEach(xPlayer => xPlayer.displayMessage("GameEnded"))
 			// pucgenie: allows new players to join
@@ -285,17 +298,16 @@ class QuiplibreContext {
 			
 			let aI = 0
 			let erstes = true
-			// pucgenie: microoptimization, enhances readability too
-			const _voteOr = textCache.voteOr
+			const _voteOrNode = createLangTextNode('answerOr', textCache.voteOr.text, textCache.voteOr.lang)
 			for (let i = 0; i < pp.players.length; ++i) {
 				let xPlayer = pp.players[i]
 				if (erstes) {
 					erstes = false
 				} else {
-					playDiv.appendChild(createLangTextNode('answerOr', _voteOr.text, _voteOr.lang))
+					playDiv.appendChild(_voteOrNode.cloneNode(true))
 				}
 				const outAnswer = xPlayer.answers[this.roundLogic.getAnswerIndex(i)]
-				playDiv.appendChild(createLangTextNode('answer', outAnswer.answer, outAnswer.lang))
+				playDiv.appendChild(createLangTextNode('answer', [outAnswer.answer], outAnswer.lang))
 			}
 		})
 	}
@@ -361,7 +373,7 @@ class QuiplibreContext {
 		// pucgenie: why does one player connect 2 times? (2019-05-05) --> __() called callback multiple times.
 		//console.log(netPlayer)
 		const tmpPlayerName = []
-		__("Player", {playerNum: this.players.length+1}, Array.prototype.push.bind(tmpPlayerName))
+		uebersetz.__("Player", {playerNum: this.players.length+1}, Array.prototype.push.bind(tmpPlayerName))
 		this.newPlayers.push(new QuiplibrePlayer(netPlayer, tmpPlayerName.join(''), this))
 	}
 	/**

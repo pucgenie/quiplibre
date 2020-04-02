@@ -1,7 +1,7 @@
 {
 "WhatsYourName":            "What is your name?",
-"YouVotedFor":              ["You voted for option ", "${voteNumber}", "."],
-"NamelessUnexpectedPrompt": ["You seem to have answered a wrong question - we expect your name first. How did you manage to answer ", "${promptId}", " at this moment?"],
+"YouVotedFor":              ["You voted for option ", ["voteNumber"], "."],
+"NamelessUnexpectedPrompt": ["You seem to have answered a wrong question - we expect your name first. How did you manage to answer ", ["promptId"], " at this moment?"],
 "RestStateSoNoAction":      "You are at rest and are not allowed to do anything in the meantime.",
 "ignoringEmptyCmdAnswer":   "Ignoring empty response...",
 "GameEnded":                "The game is over. Get yourself something to drink.",
@@ -11,9 +11,9 @@
 "Disconnected":         "Disconnected...",
 "SubmitAnswer":         "Submit",
 "VoteOr":               "OR",
-"Points":               ["Points: ", "${score}"],
+"Points":               ["Points: ", ["score"]],
 "GetReady":             "Your game should begin shortly! Look at the big screen!",
-"WrongQuestion":        ["How did you manage to answer the wrong question (#", "${prompt}", ")? Answered to #", "${remotePrompt}", "."],
+"WrongQuestion":        ["How did you manage to answer the wrong question (#", ["prompt"], ")? Answered to #", ["remotePrompt"], "."],
 "PleaseWaitForOtherAnswers":"Excellent! Now you just have to wait for everyone else to answer.",
 "SuspectHacker":        "We suspect you as hacker.",
 "comment": ""
