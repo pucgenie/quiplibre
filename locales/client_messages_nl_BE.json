@@ -1,7 +1,7 @@
 {
 "WhatsYourName":            "Wat is jouw naam?",
-"YouVotedFor":              ["Je stemde voor optie ", "${voteNumber}", "."],
-"NamelessUnexpectedPrompt": ["Je lijkt de verkeerde vraag beantwoord te hebben - we verwachten eerst je naam. Hoe heb jij ", "${promptId}", " kunnen antwoorden op dit moment?"],
+"YouVotedFor":              ["Je stemde voor optie ", ["voteNumber"], "."],
+"NamelessUnexpectedPrompt": ["Je lijkt de verkeerde vraag beantwoord te hebben - we verwachten eerst je naam. Hoe heb jij ", ["promptId"], " kunnen antwoorden op dit moment?"],
 "RestStateSoNoAction":      "Jij bent aan het rusten en dus kan je nu niets doen.",
 "ignoringEmptyCmdAnswer":   "Leeg antwoord negeren...",
 "GameEnded":                "Het spel is gedaan. Ga iets halen om te drinken.",
@@ -11,9 +11,9 @@
 "Disconnected":         "Niet verbonden...",
 "SubmitAnswer":         "Ok",
 "VoteOr":               "OF",
-"Points":               ["Punten: ", "${score}"],
+"Points":               ["Punten: ", ["score"]],
 "GetReady":             "Je spel zal zometeen beginnen! Kijk op het grote scherm!",
-"WrongQuestion":        ["Hoe ben jij erin geslaagd om de verkeerde vraag (#", "${prompt}", ")? te beantwoorden met #", "${remotePrompt}", "."],
+"WrongQuestion":        ["Hoe ben jij erin geslaagd om de verkeerde vraag (#", ["prompt"], ")? te beantwoorden met #", ["remotePrompt"], "."],
 "PleaseWaitForOtherAnswers":"Uitstekend! Nu moet je alleen nog wachten tot de anderen alles beantwoordt hebben.",
 "SuspectHacker":        "We denken dat je een hacker bent.",
 "comment": ""
