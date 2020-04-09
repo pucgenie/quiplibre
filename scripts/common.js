@@ -25,7 +25,8 @@ class Uebersetz {
 			const availLocs = JSON.parse(locList)
 			this.languages = new Set(availLocs.filter(value => navigator.languages.includes(value)))
 			if(this.languages.size == 0){
-				this.languages.addAll(availLocs.filter(value => navigator.languages.map(x => x.substring(0, 2)).includes(value)))
+				for(let availLoc of availLocs.filter(value => navigator.languages.map(x => x.substring(0, 2)).includes(value)))
+					this.languages.add(availLoc)
 			}
 			// pucgenie: last resort fallback
 			this.languages.add('en')
