@@ -209,7 +209,7 @@ class QuiplibreContext {
 		//attrDiv.shouldHide = false
 		attrDiv.style['visibility'] = 'visible'
 		attrDiv.shouldHide = true
-		setTimer(2048, this.hideAttrDiv)
+		setTimeout(this.hideAttrDiv, 2048)
 	}
 	renderPreviousResults() {
 		replaceContent(prevDiv, prevDiv => {
