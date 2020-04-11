@@ -1,8 +1,8 @@
 {
-"Player":                   ["speler", "${playerNum}"],
-"wonVotesPoints":           ["${Player.name}", " heeft gewonnen met ", "${Votes.length}", " stemmen en dus ", "${Player.score}", " punten!"],
+"Player":                   ["speler", ["playerNum"]],
+"wonVotesPoints":           [["Player.name"], " heeft gewonnen met ", ["Votes.length"], " stemmen en dus ", ["Player.score"], " punten!"],
 "LastPlayerJoined":         "Laaste speler die binnenkwam: ",
-"TotalPlayers":             ["Aantal spelers: ", "${totalPlayerCount}"],
+"TotalPlayers":             ["Aantal spelers: ", ["totalPlayerCount"]],
 "BtnStartGame":             "Start het spel",
 "NewGameSamePlayers":       "Nieuw spel met zelfde spelers",
 "NewGameNewPlayers":        "Nieuw spel met nieuwe spelers",
@@ -10,9 +10,9 @@
 "WelcomeBanner":            ["Hallo, welcome bij Quiplibre! Verbind met wifi en ga naar happyfuntimes.net om te spelen!", "\n", "Nog geen spelers."],
 "VoteOr":                   "OF",
 "NeedMorePlayers":          "Je hebt tenminste twee spelers nodig om Quiplibre te kunnen spelen!",
-"RoundBanner":              ["Tijd voor een leuke ronde van Quiplibre! Ronde ", "${roundNum}", ", om exact te zijn!"],
+"RoundBanner":              ["Tijd voor een leuke ronde van Quiplibre! Ronde ", ["roundNum"], ", om exact te zijn!"],
 "PreviousResults":          ["Vorig resultaat:", "\n"],
 "GameEndedScore":           "Einde van het spel! Hier is het scorebord:",
-"PreviousWinner":           ["Vorige winnaar: ", "${Player}"],
+"PreviousWinner":           ["Vorige winnaar: ", ["Player"]],
 "comment": "Zou waarden moeten bevatten voor alle vertalings keys."
 }
