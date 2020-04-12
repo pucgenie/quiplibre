@@ -1,6 +1,5 @@
 "use strict";
 
-const QuiplibreConfig = {enhanced: false}
 
 // prompt.id 0 is reserved for questions not related to rounds (like "What's your name?" etc.)
 window.prompts = [

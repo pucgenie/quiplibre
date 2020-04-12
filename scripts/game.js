@@ -282,7 +282,7 @@ class QuiplibreContext {
 			this.roundLogic = undefined
 	return
 		}
-		this.roundLogic = this.round < this.maxRounds ? new Round_1_2(this) : new Round_3(this)
+		this.roundLogic = this.round < this.maxRounds ? new RoundPairing(this, {nrPrompts: 1, newPrompts: false, maxAnswers: 0}) : new RoundNormal(this, {nrPrompts: 1, newPrompts: false, maxAnswers: 0})
 		this.roundLogic.nextRound()
 		replaceContentTranslated(playDiv, "RoundBanner", {roundNum: this.round})
 	}
