@@ -26,10 +26,10 @@ class AbstractRound {
 		return this.players
 	}
 	getNrPrompts() {
-		if (roundSettings.nrPrompts != undefined) {
-			return roundSettings.nrPrompts
+		if (this.roundSettings.nrPrompts == undefined) {
+			return 1 // provide sane default
 		}
-		return 1 // provide sane default
+		return this.roundSettings.nrPrompts
 	}
 	getAnswerPlayersPerPrompt(answerPlayers, index) {
 		return answerPlayers
@@ -38,13 +38,13 @@ class AbstractRound {
 		return votePlayers
 	}
 	start() {
-		answerPlayers = this.getAnswerPlayers()
-		answerPlayers.shuffle()
-		votePlayers = this.getVotePlayers()
-		votePlayers.shuffle()
+		let answerPlayers = this.getAnswerPlayers()
+		shuffle(answerPlayers)
+		let votePlayers = this.getVotePlayers()
+		shuffle(votePlayers)
 		// initialize the prompts array and pair the players if necessary
 		for(let i = 0; i < this.getNrPrompts(); i++) {
-			this.prompts.append( {id: pullPrompt(), answerPlayers: [], answers: [], votePlayers: [], votes: []} )
+			this.prompts.push( {id: pullPrompt(), answerPlayers: [], answers: [], votePlayers: [], votes: []} )
 		}
 		for(let i = 0; i < this.prompts.length; i++) {
 			this.prompts[i].answerPlayers = this.getAnswerPlayersPerPrompt(answerPlayers, i)
@@ -55,7 +55,7 @@ class AbstractRound {
 	// TODO: restructure to fill voteplayers and votes with 0,
 	// then find voteplayer index, and assign vote at the same index
 	voteAnswer(index, player, answer) {
-		votenr = this.prompts[index].votes.length
+		let votenr = this.prompts[index].votes.length
 		this.prompts[index].votePlayers[votenr] = player
 		this.prompts[index].votes[votenr] = answer
 	}
@@ -96,7 +96,7 @@ class AbstractRound {
 	}
 	nextRound(){
 		this.nextRound1()
-		for (let xPlayer of this.interfacingObj.players) {
+		for (let xPlayer of this.players) {
 			xPlayer.stateStep(this.getFirstStep())
 			
 			xPlayer.promptId = xPlayer.prompts[0].id
@@ -139,7 +139,7 @@ class RoundPairing extends AbstractRound {
 		p.answers = []//new Array(2) //optimization+readability
 	}
 	getNrPrompts() { // override because prompt is per player
-		return super.getNrPrompts() * interfacingObj.players.length;
+		return super.getNrPrompts() * this.players.length;
 	}
 	getAnswerPlayersPerPrompt(answerPlayers, index) {
 		// need to have a combination of 2 players but kinda fairly divided
@@ -148,7 +148,7 @@ class RoundPairing extends AbstractRound {
 		return [ answerPlayers[index % answerPlayers.length], answerPlayers[(index + 1) % answerPlayers.length] ]
 	}
 	nextRound1() {
-		const players = this.interfacingObj.players
+		const players = this.players
 		// pucgenie: shuffle players so that matchmaking is less complex
 		shuffle(players)
 		let i = players.length
@@ -173,7 +173,7 @@ class RoundPairing extends AbstractRound {
 		//return [this.pp.players[0].answers[0], this.pp.players[1].answers[1]]
 	}
 	allPlayersHaveAnswered(){
-		return this.interfacingObj.players.every(p => p.answers.length==2)
+		return this.players.every(p => p.answers.length==2)
 	}
 	getAnswerIndex(playerIndex){
 		return playerIndex
@@ -189,10 +189,10 @@ class RoundNormal extends AbstractRound {
 	}
 	nextRound1() {
 		const xPrompts = [pullPrompt()]
-		const ppair = {players: this.interfacingObj.players, prompt: xPrompts[0], votes: this.initVotesArray(this.interfacingObj.players.length)}
+		const ppair = {players: this.players, prompt: xPrompts[0], votes: this.initVotesArray(this.players.length)}
 		
 		this.playerPairs.push(ppair)
-		for (let xPlayer of this.interfacingObj.players) { //todo: could refactor this to use allPlayers
+		for (let xPlayer of this.players) { //todo: could refactor this to use allPlayers
 			xPlayer.prompts = xPrompts
 			xPlayer.answers = []//new Array(1)
 		}
@@ -202,7 +202,7 @@ class RoundNormal extends AbstractRound {
 	}
 	allPlayersHaveAnswered(){
 		// pucgenie: may abort at first falsey occurence
-		return this.interfacingObj.players.every(p => p.answers.length==1)
+		return this.players.every(p => p.answers.length==1)
 	}
 	getAnswerIndex(playerIndex){
 		return playerIndex

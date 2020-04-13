@@ -300,6 +300,7 @@ class QuiplibreContext {
 			return
 		}
 		this.roundLogic = this.makeNewRound(this.getRoundConfig(this.round))
+		this.roundLogic.start()
 		this.roundLogic.nextRound()
 		replaceContentTranslated(playDiv, "RoundBanner", {roundNum: this.round})
 	}
