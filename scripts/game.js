@@ -145,14 +145,14 @@ class QuiplibrePlayer extends AbstractPlayer {
 		return
 			}
 			this.interfacingObj.roundLogic.voteFor(cmd.index, this)
-			if (this.interfacingObj.round != this.interfacingObj.maxRounds || ++this.voteCountR3 == maxRounds) {
+			if (this.interfacingObj.round != this.interfacingObj.getMaxRounds() || ++this.voteCountR3 == this.interfacingObj.getMaxRounds()) {
 				// pucgenie: in any case - don't care if it already is zero at the moment
 				this.voteCountR3 = 0
 				
 				this.stateStep('rest')
 				this.displayMessage("YouVotedFor", {voteNumber: cmd.index+1})
 				const stimmenSumme = this.interfacingObj.roundLogic.sumVotes()
-				const voteFactor = this.interfacingObj.round == this.interfacingObj.maxRounds ? this.interfacingObj.maxRounds : 1
+				const voteFactor = this.interfacingObj.round == this.interfacingObj.getMaxRounds() ? this.interfacingObj.getMaxRounds() : 1
 				const fullSum = this.interfacingObj.players.length * voteFactor
 				if(stimmenSumme >= fullSum){
 					if (stimmenSumme > fullSum) {
@@ -189,13 +189,30 @@ if(QuiplibreConfig.theResPack){
 	})
 }
 class QuiplibreContext {
-	constructor(){
+	constructor(configuration){
+		this.configuration = configuration
 		this.gameBegun  = false
 		this.players    = []
 		this.newPlayers = []//new Array(3)
 		this.round      = 0
 		this.roundLogic = undefined
-		this.maxRounds  = 3 //a nice number of rounds
+	}
+	getMaxRounds() {
+		if (this.configuration == undefined || this.configuration.rounds == undefined || this.configuration.rounds.length == 0) {
+			return 3 // provide a sane default
+		}
+		this.configuration.rounds.length
+	}
+	getRoundConfig(round) {
+		if (this.configuration == undefined || this.configuration.rounds == undefined || this.configuration.rounds.length == 0) {
+			// provide a sane default configuration
+			return {type: (round < this.getMaxRounds() ? 'paired' : 'normal'), nrPrompts: 1, newPrompts: false, maxAnswers: 0}
+		}
+		// TODO: need to merge global config with defaultRound
+		return this.configuration.rounds[round - 1]
+	}
+	makeNewRound(roundConfig) {
+		return roundConfig.type == "paired" ? new RoundPairing(this, roundConfig) : new RoundNormal(this, roundConfig)
 	}
 	hideAttrDiv() {
 		if (attrDiv.shouldHide == true) {
@@ -250,7 +267,7 @@ class QuiplibreContext {
 		this.hideAttrDiv()
 		//clearElementChilds(playDiv)
 		this.gameBegun = true
-		if (++this.round > this.maxRounds){
+		if (++this.round > this.getMaxRounds()){
 			this.sortPlayers()
 			replaceContent(playDiv, playDiv => {
 				playDiv.appendChild(replaceContentTranslated(document.createElement('p'), "GameEndedScore"))
@@ -280,9 +297,9 @@ class QuiplibreContext {
 			this.gameBegun = false
 			// pucgenie: garbage
 			this.roundLogic = undefined
-	return
+			return
 		}
-		this.roundLogic = this.round < this.maxRounds ? new RoundPairing(this, {nrPrompts: 1, newPrompts: false, maxAnswers: 0}) : new RoundNormal(this, {nrPrompts: 1, newPrompts: false, maxAnswers: 0})
+		this.roundLogic = this.makeNewRound(this.getRoundConfig(this.round))
 		this.roundLogic.nextRound()
 		replaceContentTranslated(playDiv, "RoundBanner", {roundNum: this.round})
 	}
@@ -392,7 +409,7 @@ class QuiplibreContext {
  * Accessed by button click handlers.
  * @author pucgenie
 **/
-window.quiplCtx = new QuiplibreContext()
+window.quiplCtx = new QuiplibreContext(QuiplibreConfig)
 /**
  * A new player has arrived.
 **/
