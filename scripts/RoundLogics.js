@@ -82,7 +82,7 @@ class AbstractRound {
 		for(let i = xPp.votes.length; i --> 0;){
 			let xPlayer = xPp.players[i]
 			let xVotes = xPp.votes[i]
-			xPlayer.score += xVotes.length * this.interfacingObj.round
+			xPlayer.score += xVotes.length * this.round
 			xPlayer.netPlayer.sendCmd('updateScore', xPlayer.score)
 			perPlayer(xPlayer, xVotes)
 		}
